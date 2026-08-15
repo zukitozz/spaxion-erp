@@ -3,12 +3,15 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
 import { obtenerCorrelativo, resolverPrefijo } from '@/lib/correlativos'
+import { numeroALetras } from '@/lib/numeroALetras'
 
 export const dynamic = 'force-dynamic'
 
 function round2(value: number) {
   return Math.round(value * 100) / 100
 }
+
+const IGV_PORCENTAJE = Number(process.env.IGV_PORCENTAJE || '18')
 
 const CODIGO_SUNAT_TIPO_COMPROBANTE: Record<string, string | null> = {
   BOLETA: '03',
@@ -125,7 +128,6 @@ export async function POST(req: Request) {
   }
 
   const tipo: string = body.tipo || 'BOLETA'
-  const cliente = tipo === 'FACTURA' ? await prisma.cliente.findUnique({ where: { id: body.clienteId }, select: { ruc: true } }) : null
 
   const tipoDocumento = TIPO_DOCUMENTO_CORRELATIVO[tipo]
   const configuracion = await prisma.configuracion.findUnique({ where: { id: 'default' }, select: { ruc: true } })
@@ -158,6 +160,9 @@ export async function POST(req: Request) {
       prefijo,
     })
 
+    const gravadas = round2(total / (1 + IGV_PORCENTAJE / 100))
+    const igv = round2(gravadas * (IGV_PORCENTAJE / 100))
+
     const creada = await tx.factura.create({
       data: {
         cliente: { connect: { id: body.clienteId } },
@@ -177,9 +182,12 @@ export async function POST(req: Request) {
         numeracionComprobante,
         fechaHora: new Date(),
         totalVenta: String(total),
+        gravadas,
+        igv,
+        montoLetras: numeroALetras(total),
         enviado: false,
         usuario: { connect: { id: session.user.id } },
-        ruc: cliente?.ruc ?? null,
+        ruc: configuracion.ruc,
         pagoEfectivo: body.metodoPago === 'EFECTIVO' ? total : null,
         pagoTarjeta: body.metodoPago === 'TARJETA' ? total : null,
         pagoYape: ['YAPE', 'PLIN'].includes(body.metodoPago) ? total : null,

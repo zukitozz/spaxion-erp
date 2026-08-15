@@ -48,7 +48,6 @@ interface Factura {
   total: number
   metodoPago: string
   estado: string
-  comprobante: string | null
   descuentoAplicado: number | null
   items: FacturaItem[]
   numeracionComprobante: string | null
@@ -144,7 +143,7 @@ function FacturacionContent() {
           </div>
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">S/ {factura.total.toFixed(2)}</span>
         </div>
-        <p className="mt-3 text-sm text-slate-600">{factura.estado} · {factura.numeracionComprobante || factura.comprobante || 'Sin comprobante'}</p>
+        <p className="mt-3 text-sm text-slate-600">{factura.estado} · {factura.numeracionComprobante || 'Sin comprobante'}</p>
         <div className="mt-3 grid gap-2 text-sm text-slate-500">
           {(Array.isArray(factura.items) ? factura.items : []).map((item) => (
             <div key={item.id} className="flex items-center justify-between">

@@ -242,7 +242,6 @@ model Factura {
   total             Float
   metodoPago        MetodoPago
   estado            String
-  comprobante       String?
   descuentoAplicado Float?           @default(0)
   descuento         Descuento?       @relation(fields: [descuentoId], references: [id])
   descuentoId       String?
@@ -267,7 +266,6 @@ model Factura {
   pdfBytes                    String?
   url                         String?
   errors                      String?
-  pistola                     Int          @default(0)
   comentario                  String?
   pagoTarjeta                 Float?
   pagoEfectivo                Float?
@@ -275,13 +273,11 @@ model Factura {
   pagoTransferencia           Float?
   pagoDeposito                Float?
   billete                     Float?
-  productoPrecio              Float?
   ruc                         String?
   enviado                     Boolean      @default(false)
   estadoNotaDespacho          Boolean      @default(false)
   comprobanteNotaDespacho     String?
   fechaFacturadoNotaDespacho  DateTime?
-  receptorId                  Int?
   usuario                     User?        @relation(fields: [usuarioId], references: [id])
   usuarioId                   String?
   cierreTurno                 CierreTurno? @relation(fields: [cierreTurnoId], references: [id], onDelete: SetNull)
