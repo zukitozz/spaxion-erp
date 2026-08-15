@@ -1,0 +1,40 @@
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { requireApiAuth } from '@/lib/api-auth'
+
+export const dynamic = 'force-dynamic'
+
+export async function GET() {
+  const guard = await requireApiAuth()
+  if (guard) return guard
+
+  const settings = await prisma.configuracion.upsert({ where: { id: 'default' }, update: {}, create: { id: 'default' } })
+  return NextResponse.json(settings)
+}
+
+export async function PUT(req: Request) {
+  const guard = await requireApiAuth(['ADMIN'])
+  if (guard) return guard
+
+  const body = await req.json()
+  const settings = await prisma.configuracion.upsert({
+    where: { id: 'default' },
+    update: {
+      nombreEmpresa: body.nombreEmpresa,
+      googleCalendarActivo: Boolean(body.googleCalendarActivo),
+      googleCalendarId: body.googleCalendarId || null,
+      facturacionEndpoint: body.facturacionEndpoint || null,
+      facturacionActivo: Boolean(body.facturacionActivo),
+    },
+    create: {
+      id: 'default',
+      nombreEmpresa: body.nombreEmpresa || 'Spaxión Centro Estético',
+      googleCalendarActivo: Boolean(body.googleCalendarActivo),
+      googleCalendarId: body.googleCalendarId || null,
+      facturacionEndpoint: body.facturacionEndpoint || null,
+      facturacionActivo: Boolean(body.facturacionActivo),
+    },
+  })
+
+  return NextResponse.json(settings)
+}

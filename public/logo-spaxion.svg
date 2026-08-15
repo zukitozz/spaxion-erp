@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 220" role="img" aria-labelledby="title desc">
+  <title id="title">Spaxión Centro Estético</title>
+  <desc id="desc">Logo de Spaxión Centro Estético</desc>
+  <g fill="none" stroke="#c19a4b" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+    <path d="M318 18c-18 16-23 36-18 58 5 22 0 43-16 61"/>
+    <path d="M296 44c-20-17-43-20-63-8 8 20 24 33 47 36"/>
+    <path d="M303 45c16-22 38-32 63-29-2 24-15 42-38 51"/>
+    <path d="M301 62c-3 27 3 49 20 66"/>
+    <path d="M321 76c19-4 31-15 37-32"/>
+    <path d="M358 44c-3 11-1 21 7 30 8 9 8 20 1 31-8 12-20 18-37 19"/>
+    <path d="M294 91c-11 14-15 29-11 46"/>
+  </g>
+  <text x="320" y="153" text-anchor="middle" fill="#00665b" font-family="Georgia, serif" font-size="62" letter-spacing="2">SPAXIÓN</text>
+  <text x="320" y="190" text-anchor="middle" fill="#3b665c" font-family="Arial, sans-serif" font-size="16" letter-spacing="7">CENTRO ESTÉTICO</text>
+</svg>

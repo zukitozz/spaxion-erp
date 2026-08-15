@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  name                  String
+  email                 String                 @unique
+  password              String
+  role                  UserRole               @default(ADMIN)
+  createdAt             DateTime               @default(now())
+  cierresTurno          CierreTurno[]
+  facturas              Factura[]
+  atenciones            AtencionCabina[]       @relation("AtencionesEsteticista")
+  cabinaEstadoLogs      CabinaEstadoLog[]
+  movimientosInventario MovimientoInventario[]
+}
+
+enum UserRole {
+  SUPERVISOR
+  ADMIN
+  OPERADOR
+  ESTETICISTA
+}
+
+model Cliente {
+  id                         String           @id @default(uuid())
+  nombre                     String
+  dni                        String?          @unique
+  ruc                        String?          @unique
+  razonSocial                String?
+  celular                    String?
+  distrito                   String?
+  email                      String?
+  fechaNacimiento            DateTime?
+  peso                       Float?
+  notas                      String?
+  recordatorioPospuestoHasta DateTime?
+  citas                      Cita[]
+  facturas                   Factura[]
+  atenciones                 AtencionCabina[]
+  createdAt                  DateTime         @default(now())
+}
+
+model Cita {
+  id          String           @id @default(uuid())
+  cliente     Cliente          @relation(fields: [clienteId], references: [id])
+  clienteId   String
+  fecha       DateTime
+  tratamiento String
+  estado      CitaEstado       @default(PENDIENTE)
+  registrado  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  atenciones  AtencionCabina[]
+}
+
+enum CitaEstado {
+  PENDIENTE
+  CONFIRMADA
+  ATENDIDA
+  CANCELADA
+}
+
+model Cabina {
+  id         String            @id @default(uuid())
+  nombre     String
+  estado     CabinaEstado      @default(DISPONIBLE)
+  createdAt  DateTime          @default(now())
+  atenciones AtencionCabina[]
+  estadoLogs CabinaEstadoLog[]
+}
+
+enum CabinaEstado {
+  DISPONIBLE
+  ATENCION
+  LIMPIEZA
+  MANTENIMIENTO
+}
+
+enum AtencionEstado {
+  EN_CURSO
+  FINALIZADA
+  CANCELADA
+}
+
+model AtencionCabina {
+  id                     String         @id @default(uuid())
+  cabina                 Cabina         @relation(fields: [cabinaId], references: [id])
+  cabinaId               String
+  cliente                Cliente        @relation(fields: [clienteId], references: [id])
+  clienteId              String
+  tratamiento            Tratamiento    @relation(fields: [tratamientoId], references: [id])
+  tratamientoId          String
+  esteticista            User           @relation("AtencionesEsteticista", fields: [esteticistaId], references: [id])
+  esteticistaId          String
+  cita                   Cita?          @relation(fields: [citaId], references: [id])
+  citaId                 String?
+  estado                 AtencionEstado @default(EN_CURSO)
+  horaInicio             DateTime       @default(now())
+  horaFin                DateTime?
+  notas                  String?
+  diasProximoTratamiento Int?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  factura   Factura? @relation(fields: [facturaId], references: [id])
+  facturaId String?
+
+  estadoLogs CabinaEstadoLog[]
+  fotos      AtencionFoto[]
+  productos  AtencionProducto[]
+
+  @@index([cabinaId, estado])
+  @@index([clienteId])
+  @@index([tratamientoId])
+  @@index([esteticistaId])
+  @@index([citaId])
+  @@index([facturaId])
+}
+
+model AtencionProducto {
+  id         String         @id @default(uuid())
+  atencion   AtencionCabina @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  atencionId String
+  producto   Producto       @relation(fields: [productoId], references: [id])
+  productoId String
+  cantidad   Int            @default(1)
+  precioUnit Float
+  creadoAt   DateTime       @default(now())
+
+  @@index([atencionId])
+}
+
+enum FotoTipo {
+  ANTES
+  DESPUES
+  EVOLUCION
+}
+
+model AtencionFoto {
+  id          String         @id @default(uuid())
+  atencion    AtencionCabina @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  atencionId  String
+  tipo        FotoTipo?
+  url         String
+  descripcion String?
+  creadoAt    DateTime       @default(now())
+
+  @@index([atencionId])
+}
+
+model CabinaEstadoLog {
+  id             String          @id @default(uuid())
+  cabina         Cabina          @relation(fields: [cabinaId], references: [id])
+  cabinaId       String
+  estadoAnterior CabinaEstado
+  estadoNuevo    CabinaEstado
+  usuario        User            @relation(fields: [usuarioId], references: [id])
+  usuarioId      String
+  atencion       AtencionCabina? @relation(fields: [atencionId], references: [id])
+  atencionId     String?
+  motivo         String?
+  creadoAt       DateTime        @default(now())
+
+  @@index([cabinaId, creadoAt])
+}
+
+model Producto {
+  id            String                 @id @default(uuid())
+  nombre        String
+  descripcion   String?
+  precioVenta   Float
+  precioCosto   Float?
+  stock         Int                    @default(0)
+  alertaStock   Int                    @default(5)
+  codigoBarras  String?                @unique
+  imagenUrl     String?
+  creadoAt      DateTime               @default(now())
+  facturaItems  FacturaItem[]
+  tratamientos  TratamientoProducto[]
+  atencionItems AtencionProducto[]
+  movimientos   MovimientoInventario[]
+}
+
+enum MovimientoTipo {
+  ENTRADA
+  SALIDA
+  AJUSTE
+}
+
+model MovimientoInventario {
+  id            String         @id @default(uuid())
+  producto      Producto       @relation(fields: [productoId], references: [id])
+  productoId    String
+  tipo          MovimientoTipo
+  cantidad      Int
+  stockAnterior Int
+  stockNuevo    Int
+  motivo        String?
+  usuario       User           @relation(fields: [usuarioId], references: [id])
+  usuarioId     String
+  creadoAt      DateTime       @default(now())
+
+  @@index([productoId, creadoAt])
+}
+
+model Tratamiento {
+  id                     String                @id @default(uuid())
+  nombre                 String
+  descripcion            String?
+  precio                 Float
+  duracionMin            Int
+  activo                 Boolean               @default(true)
+  diasProximoTratamiento Int?
+  creadoAt               DateTime              @default(now())
+  insumos                TratamientoProducto[]
+  atenciones             AtencionCabina[]
+}
+
+model TratamientoProducto {
+  id            String      @id @default(uuid())
+  tratamiento   Tratamiento @relation(fields: [tratamientoId], references: [id], onDelete: Cascade)
+  tratamientoId String
+  producto      Producto    @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId    String
+  cantidad      Float       @default(1)
+  unidad        String      @default("unidad")
+
+  @@unique([tratamientoId, productoId])
+}
+
+model Factura {
+  id                String           @id @default(uuid())
+  cliente           Cliente          @relation(fields: [clienteId], references: [id])
+  clienteId         String
+  tipo              FacturaTipo
+  total             Float
+  metodoPago        MetodoPago
+  estado            String
+  comprobante       String?
+  descuentoAplicado Float?           @default(0)
+  descuento         Descuento?       @relation(fields: [descuentoId], references: [id])
+  descuentoId       String?
+  creadoAt          DateTime         @default(now())
+  items             FacturaItem[]
+  atenciones        AtencionCabina[]
+
+  tipoComprobante             String?
+  numeracionComprobante       String?
+  fechaEmision                DateTime?
+  tipoMoneda                  String?      @default("PEN")
+  tipoOperacion               String?      @default("0101")
+  tipoNota                    String?
+  tipoDocumentoAfectado       String?
+  fechaDocumentoAfectado      DateTime?
+  numeracionDocumentoAfectado String?
+  motivoDocumentoAfectado     String?
+  totalVenta                  String?
+  montoLetras                 String?
+  cadenaParaCodigoQr          String?
+  codigoHash                  String?
+  pdfBytes                    String?
+  url                         String?
+  errors                      String?
+  pistola                     Int          @default(0)
+  comentario                  String?
+  pagoTarjeta                 Float?
+  pagoEfectivo                Float?
+  pagoYape                    Float?
+  pagoTransferencia           Float?
+  pagoDeposito                Float?
+  billete                     Float?
+  productoPrecio              Float?
+  ruc                         String?
+  enviado                     Boolean      @default(false)
+  estadoNotaDespacho          Boolean      @default(false)
+  comprobanteNotaDespacho     String?
+  fechaFacturadoNotaDespacho  DateTime?
+  receptorId                  Int?
+  usuario                     User?        @relation(fields: [usuarioId], references: [id])
+  usuarioId                   String?
+  cierreTurno                 CierreTurno? @relation(fields: [cierreTurnoId], references: [id], onDelete: SetNull)
+  cierreTurnoId               String?
+  fechaHora                   DateTime?
+  gravadas                    Float?
+  igv                         Float?
+  xmlEnvio                    String?
+  impresion                   Int          @default(1)
+}
+
+enum FacturaTipo {
+  BOLETA
+  FACTURA
+  NOTA_VENTA
+}
+
+model Descuento {
+  id          String        @id @default(uuid())
+  codigo      String        @unique
+  descripcion String?
+  tipo        DescuentoTipo @default(PORCENTAJE)
+  valor       Float
+  activo      Boolean       @default(true)
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  facturas    Factura[]
+  createdAt   DateTime      @default(now())
+}
+
+enum DescuentoTipo {
+  PORCENTAJE
+  FIJO
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TARJETA
+  YAPE
+  PLIN
+  TRANSFERENCIA
+  DEPOSITO
+}
+
+model FacturaItem {
+  id             String    @id @default(uuid())
+  factura        Factura   @relation(fields: [facturaId], references: [id])
+  facturaId      String
+  nombre         String
+  cantidad       Int
+  precioUnit     Float
+  total          Float
+  codigoProducto String?
+  igv            Float?
+  decCantidad    Float?
+  decSubtotal    Float?
+  decTotal       Float?
+  valor          Float?
+  precio         Float?
+  igvVenta       Float?
+  codigo         Int?
+  producto       Producto? @relation(fields: [productoId], references: [id])
+  productoId     String?
+}
+
+model CierreTurno {
+  id                 String    @id @default(uuid())
+  usuario            User      @relation(fields: [usuarioId], references: [id])
+  usuarioId          String
+  fechaInicio        DateTime
+  fechaFin           DateTime
+  totalVentas        Float
+  totalEfectivo      Float
+  totalTarjeta       Float
+  totalYape          Float
+  totalTransferencia Float     @default(0)
+  totalDeposito      Float     @default(0)
+  creadoAt           DateTime  @default(now())
+  facturas           Factura[]
+}
+
+model Configuracion {
+  id                   String   @id @default("default")
+  nombreEmpresa        String   @default("Spaxión Centro Estético")
+  ruc                  String?  @db.VarChar(11)
+  googleCalendarActivo Boolean  @default(false)
+  googleCalendarId     String?
+  facturacionEndpoint  String?
+  facturacionActivo    Boolean  @default(false)
+  actualizadoAt        DateTime @updatedAt
+}
+
+model Serie {
+  id              String  @id @default(uuid())
+  codigoProposito String  @db.VarChar(50)
+  tipoComprobante String  @db.VarChar(2)
+  serie           String  @db.VarChar(3)
+  estado          Int     @default(1)
+  descripcion     String? @db.VarChar(200)
+}
+
+model Correlativo {
+  id            String   @id @default(uuid())
+  tipoDocumento String   @db.VarChar(2)
+  serie         String   @db.VarChar(3)
+  prefijo       String   @db.VarChar(2)
+  numeracion    Int      @default(0)
+  estado        String   @default("A") @db.Char(1)
+  ruc           String   @db.VarChar(11)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([ruc, tipoDocumento, serie, prefijo])
+}
