@@ -77,13 +77,13 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden" onClick={onCloseMobile} />
+        <div className="fixed inset-0 z-40 bg-slate-900/40 md:hidden" onClick={onCloseMobile} />
       )}
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col bg-[linear-gradient(180deg,#005a4f_0%,#00483f_50%,#043a31_100%)] text-[#f4f0e8] transition-all duration-200 ${
           collapsed ? 'w-20' : 'w-64'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
         <div className="flex items-center gap-2 border-b border-[#c19a4b]/30 p-4">
           {!collapsed && <BrandLogo compact onDark />}
@@ -91,7 +91,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             type="button"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
             onClick={onToggleCollapsed}
-            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] lg:flex"
+            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] md:flex"
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
@@ -99,7 +99,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             type="button"
             aria-label="Cerrar menú"
             onClick={onCloseMobile}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] lg:hidden"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] md:hidden"
           >
             <X size={18} />
           </button>
