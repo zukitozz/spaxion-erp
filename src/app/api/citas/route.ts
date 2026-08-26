@@ -7,6 +7,18 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const guard = await requireApiAuth()
   if (guard) return guard
+  const configuracion = await prisma.configuracion.upsert({ where: { id: 'default' }, update: {}, create: { id: 'default' } })
+  const limiteExpiracion = new Date(Date.now() - configuracion.horasExpiracionCita * 60 * 60 * 1000)
+
+  await prisma.cita.updateMany({
+    where: {
+      fecha: { lt: limiteExpiracion },
+      estado: { in: ['PENDIENTE', 'CONFIRMADA'] },
+      registrado: false,
+    },
+    data: { estado: 'EXPIRADA' },
+  })
+
   const citas = await prisma.cita.findMany({
     include: { cliente: true },
     orderBy: { fecha: 'asc' },
@@ -27,6 +39,7 @@ export async function POST(req: Request) {
       estado: body.estado || 'PENDIENTE',
       registrado: false,
     },
+    include: { cliente: true },
   })
 
   return NextResponse.json(cita, { status: 201 })

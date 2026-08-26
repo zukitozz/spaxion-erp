@@ -64,6 +64,7 @@ enum CitaEstado {
   CONFIRMADA
   ATENDIDA
   CANCELADA
+  EXPIRADA
 }
 
 model Cabina {
@@ -367,6 +368,7 @@ model Configuracion {
   googleCalendarId     String?
   facturacionEndpoint  String?
   facturacionActivo    Boolean  @default(false)
+  horasExpiracionCita  Int      @default(24)
   actualizadoAt        DateTime @updatedAt
 }
 

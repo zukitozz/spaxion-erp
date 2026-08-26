@@ -25,6 +25,7 @@ export async function PUT(req: Request) {
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
+      horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
     },
     create: {
       id: 'default',
@@ -33,6 +34,7 @@ export async function PUT(req: Request) {
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
+      horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
     },
   })
 

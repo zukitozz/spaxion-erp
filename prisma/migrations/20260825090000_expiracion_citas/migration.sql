@@ -1,0 +1,4 @@
+ALTER TYPE "CitaEstado" ADD VALUE 'EXPIRADA';
+
+ALTER TABLE "Configuracion"
+ADD COLUMN "horasExpiracionCita" INTEGER NOT NULL DEFAULT 24;
