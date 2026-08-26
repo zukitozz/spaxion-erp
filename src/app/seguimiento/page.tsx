@@ -45,13 +45,22 @@ function formatearDiasRestantes(dias: number | null) {
 export default function SeguimientoPage() {
   const [clientes, setClientes] = useState<SeguimientoCliente[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [posponiendoId, setPosponiendoId] = useState<string | null>(null)
 
   const load = async () => {
-    const response = await fetch('/api/seguimiento')
-    const data = await response.json()
-    setClientes(Array.isArray(data) ? data : [])
-    setLoading(false)
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/seguimiento')
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.error || 'No se pudo cargar el seguimiento')
+      setClientes(Array.isArray(data) ? data : [])
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el seguimiento')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { void load() }, [])
@@ -69,17 +78,19 @@ export default function SeguimientoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Seguimiento</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Seguimiento de clientes</h1>
+          <p className="eyebrow">Seguimiento</p>
+          <h1 className="mt-3 page-heading text-3xl">Seguimiento de clientes</h1>
           <p className="mt-2 text-slate-600">Clientes ordenados por urgencia de contacto según los días sugeridos para repetir su tratamiento.</p>
         </div>
 
         <div className="card-surface overflow-x-auto">
           {loading ? (
             <p className="text-sm text-slate-500">Cargando clientes...</p>
+          ) : error ? (
+            <p className="text-sm text-rose-600">{error}</p>
           ) : clientes.length === 0 ? (
             <p className="text-sm text-slate-500">No hay clientes registrados.</p>
           ) : (

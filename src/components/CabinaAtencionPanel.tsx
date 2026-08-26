@@ -10,6 +10,7 @@ interface Cliente { id: string; nombre: string }
 interface Tratamiento { id: string; nombre: string; activo: boolean }
 interface Esteticista { id: string; name: string }
 interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente }
+interface Configuracion { horasExpiracionCita: number }
 interface Producto { id: string; nombre: string; precioVenta: number; stock: number }
 interface AtencionProductoItem { id: string; cantidad: number; precioUnit: number; producto: { id: string; nombre: string } }
 
@@ -34,6 +35,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [esteticistas, setEsteticistas] = useState<Esteticista[]>([])
   const [citas, setCitas] = useState<CitaPendiente[]>([])
+  const [horasExpiracionCita, setHorasExpiracionCita] = useState(24)
   const [modo, setModo] = useState<'walkin' | 'cita'>('walkin')
   const [form, setForm] = useState({ clienteId: '', tratamientoId: '', esteticistaId: '', citaId: '', notas: '' })
   const [saving, setSaving] = useState(false)
@@ -43,7 +45,11 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const [nuevoProductoId, setNuevoProductoId] = useState('')
   const [nuevaCantidad, setNuevaCantidad] = useState(1)
   const [agregandoProducto, setAgregandoProducto] = useState(false)
-  const [diasProximoTratamiento, setDiasProximoTratamiento] = useState('')
+  const [diasProximoTratamiento, setDiasProximoTratamiento] = useState(() =>
+    cabina.atencionActual?.tratamiento.diasProximoTratamiento
+      ? String(cabina.atencionActual.tratamiento.diasProximoTratamiento)
+      : ''
+  )
 
   const atencionId = cabina.atencionActual?.id
 
@@ -93,17 +99,19 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       fetch('/api/tratamientos').then((res) => res.json()),
       fetch('/api/usuarios/esteticistas').then((res) => res.json()),
       fetch('/api/citas').then((res) => res.json()),
-    ]).then(([clientesData, tratamientosData, esteticistasData, citasData]) => {
+      fetch('/api/ajustes').then((res) => res.json()),
+    ]).then(([clientesData, tratamientosData, esteticistasData, citasData, configuracionData]) => {
       setClientes(Array.isArray(clientesData) ? clientesData : [])
       setTratamientos(Array.isArray(tratamientosData) ? tratamientosData.filter((t: Tratamiento) => t.activo) : [])
       setEsteticistas(Array.isArray(esteticistasData) ? esteticistasData : [])
+      setHorasExpiracionCita(Math.max(1, Number((configuracionData as Configuracion).horasExpiracionCita) || 24))
       setCitas(
         Array.isArray(citasData)
-          ? citasData.filter((c: CitaPendiente) => !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA'))
+          ? citasData.filter((c: CitaPendiente) => !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.fecha).getTime() + horasExpiracionCita * 60 * 60 * 1000 > Date.now())
           : []
       )
     })
-  }, [cabina.estado])
+  }, [cabina.estado, horasExpiracionCita])
 
   const seleccionarCita = (citaId: string) => {
     const cita = citas.find((c) => c.id === citaId)
@@ -240,14 +248,14 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
               min={1}
               value={diasProximoTratamiento}
               onChange={(e) => setDiasProximoTratamiento(e.target.value)}
-              placeholder={
-                cabina.atencionActual.tratamiento.diasProximoTratamiento
-                  ? `Por defecto: ${cabina.atencionActual.tratamiento.diasProximoTratamiento} días`
-                  : 'Sin valor sugerido por el tratamiento'
-              }
+              placeholder="Sin valor sugerido por el tratamiento"
               className="field mt-2"
             />
-            <p className="mt-1 text-xs text-slate-500">Déjalo vacío para usar el valor por defecto del tratamiento. Solo aplica al finalizar.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {cabina.atencionActual.tratamiento.diasProximoTratamiento
+                ? 'Precargado con el valor configurado en el tratamiento. Puedes modificarlo antes de finalizar.'
+                : 'Este tratamiento no tiene un valor por defecto configurado.'}
+            </p>
           </div>
 
           <div className="flex gap-3">

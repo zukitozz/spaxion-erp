@@ -72,7 +72,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col bg-[#00483f] text-[#f4f0e8] transition-all duration-200 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col bg-[linear-gradient(180deg,#005a4f_0%,#00483f_50%,#043a31_100%)] text-[#f4f0e8] transition-all duration-200 ${
           collapsed ? 'w-20' : 'w-64'
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >

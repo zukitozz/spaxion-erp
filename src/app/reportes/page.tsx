@@ -120,11 +120,11 @@ export default function ReportesPage() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Reportes</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Cierres de turno</h1>
+          <p className="eyebrow">Reportes</p>
+          <h1 className="mt-3 page-heading text-3xl">Cierres de turno</h1>
           <p className="mt-2 text-slate-600">Solo para supervisor: revisa cierres históricos de caja y métricas.</p>
           <Link href="/historico/atenciones" className="btn-brand mt-5 inline-flex">Ver histórico de atenciones</Link>
         </div>
@@ -180,7 +180,7 @@ export default function ReportesPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm text-slate-500">Últimos cierres</p>
-                <h2 className="mt-2 text-3xl font-semibold text-emerald-900">{cierres.length}</h2>
+                <h2 className="mt-2 page-heading text-3xl">{cierres.length}</h2>
               </div>
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Supervisor</span>
             </div>
@@ -192,8 +192,8 @@ export default function ReportesPage() {
 
           <div className="card-surface">
             <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6">
-              <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Métricas</p>
-              <h2 className="mt-3 text-3xl font-semibold text-emerald-900">Resumen actual</h2>
+              <p className="eyebrow">Métricas</p>
+              <h2 className="mt-3 page-heading text-3xl">Resumen actual</h2>
               <p className="mt-4 text-sm text-slate-600">Totales agregados desde los cierres disponibles.</p>
             </div>
 

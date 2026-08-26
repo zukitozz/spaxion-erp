@@ -47,17 +47,17 @@ export default function CabinasPage() {
   const cabinaSeleccionada = cabinas.find((cabina) => cabina.id === selectedCabinaId) ?? null
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Cabinas</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Tablero visual de cabinas</h1>
+          <p className="eyebrow">Cabinas</p>
+          <h1 className="page-heading mt-3 text-3xl">Estado en tiempo real</h1>
           <p className="mt-2 text-slate-600">Matricula cabinas y controla su estado en tiempo real.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="card-surface">
-            <h2 className="text-xl font-semibold text-emerald-900">Crear cabina</h2>
+            <h2 className="text-xl font-bold text-[#173d36]">Crear cabina</h2>
             <div className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700">Nombre</label>
@@ -91,17 +91,17 @@ export default function CabinasPage() {
           </div>
 
           <div className="card-surface">
-            <h2 className="text-xl font-semibold text-emerald-900">Resumen</h2>
+            <h2 className="text-xl font-bold text-[#173d36]">Resumen</h2>
             <p className="mt-4 text-sm text-slate-600">Total de cabinas: {cabinas.length}</p>
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-3">
               {loading ? (
-                <div className="rounded-3xl bg-slate-50 p-5">Cargando cabinas...</div>
+                <div className="rounded-2xl bg-[#f9faf8] p-5">Cargando cabinas...</div>
               ) : cabinas.length === 0 ? (
-                <div className="rounded-3xl bg-slate-50 p-5">No hay cabinas registradas.</div>
+                <div className="rounded-2xl bg-[#f9faf8] p-5">No hay cabinas registradas.</div>
               ) : (
                 cabinas.map((cabina) => (
-                  <div key={cabina.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="font-semibold text-slate-900">{cabina.nombre}</p>
+                  <div key={cabina.id} className="rounded-2xl border border-[#eef1ec] bg-[#fdfdfb] p-4">
+                    <p className="font-bold text-[#173d36]">{cabina.nombre}</p>
                     <p className="mt-1 text-sm text-slate-500">Estado: {cabina.estado}</p>
                   </div>
                 ))

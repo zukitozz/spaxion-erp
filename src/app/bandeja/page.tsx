@@ -45,11 +45,11 @@ export default function BandejaPage() {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Bandeja de Atención</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">
+          <p className="eyebrow">Bandeja de Atención</p>
+          <h1 className="mt-3 page-heading text-3xl">
             {esEsteticista ? 'Mis atenciones en curso' : 'Atenciones en curso por esteticista'}
           </h1>
           <p className="mt-2 text-slate-600">Registra las fotos de seguimiento del tratamiento sin necesidad de abrir el tablero completo de cabinas.</p>

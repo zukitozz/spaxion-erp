@@ -171,11 +171,11 @@ function HistoricoAtencionesContent() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Histórico</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Histórico de Atenciones</h1>
+          <p className="eyebrow">Histórico</p>
+          <h1 className="mt-3 page-heading text-3xl">Histórico de Atenciones</h1>
           <p className="mt-2 text-slate-600">Filtra por fecha, paciente y tratamiento. Pasa el cursor sobre la cámara para ver fotos y haz clic en una fila para el detalle.</p>
         </div>
 
@@ -310,7 +310,7 @@ function HistoricoAtencionesContent() {
 
 export default function HistoricoAtencionesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+    <Suspense fallback={<div className="page-shell" />}>
       <HistoricoAtencionesContent />
     </Suspense>
   )

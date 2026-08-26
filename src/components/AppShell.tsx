@@ -27,7 +27,7 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[#c19a4b]/35 bg-[#00483f] px-4 py-3 text-[#f4f0e8] shadow-[0_8px_24px_rgba(0,72,63,0.18)] lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[#c19a4b]/35 bg-[linear-gradient(120deg,#00483f,#00655a)] px-4 py-3 text-[#f4f0e8] shadow-[0_8px_24px_rgba(0,72,63,0.18)] lg:hidden">
         <button
           type="button"
           aria-label="Abrir menú"

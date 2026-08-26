@@ -7,6 +7,11 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        serif: ['var(--font-display)', 'Georgia', 'serif'],
+        body: ['var(--font-body)', '"Trebuchet MS"', 'sans-serif'],
+      },
       colors: {
         spaxion: {
           50: '#f5f4f1',

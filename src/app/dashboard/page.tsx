@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { CalendarCheck, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { CabinaCard, type AtencionActual, type CabinaEstado } from '@/components/CabinaCard'
 import { Modal } from '@/components/Modal'
@@ -51,47 +52,54 @@ export default function DashboardPage() {
 
   const cabinaSeleccionada = data?.cabinas.find((cabina) => cabina.id === selectedCabinaId) ?? null
 
+  const stats = [
+    { label: 'Citas del día', value: String(data?.citas?.length ?? 0), tint: '#ecf8f2', color: '#1d6f50', Icon: CalendarCheck },
+    { label: 'Facturado hoy', value: `S/ ${(data?.totalFacturado ?? 0).toFixed(2)}`, tint: '#f5efe4', color: '#9a7e62', Icon: Banknote },
+    { label: 'Por cobrar', value: `S/ ${(data?.totalPendiente ?? 0).toFixed(2)}`, tint: '#fdf3e0', color: '#b8860b', Icon: CreditCard },
+    { label: 'Stock bajo', value: String(data?.productosStockBajo ?? 0), tint: '#fdeceb', color: '#b3403a', Icon: AlertTriangle },
+  ]
+
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-[28px] bg-white/90 p-8 shadow-soft">
-          <p className="text-sm uppercase tracking-[0.3em] text-emerald-700/80">Panel de control</p>
-          <h1 className="mt-4 text-3xl font-semibold text-emerald-900">Agenda y estado de cabinas</h1>
+        <header className="card-surface p-8">
+          <p className="eyebrow">Panel de control</p>
+          <h1 className="page-heading mt-3 text-3xl">Agenda y estado de cabinas</h1>
           <p className="mt-3 max-w-2xl text-slate-600">Datos reales de la operación del día.</p>
           {error && <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}. Vuelve a iniciar sesión para actualizar los datos.</p>}
         </header>
 
         <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: 'Citas del día', value: data?.citas?.length ?? 0 },
-            { label: 'Facturado hoy', value: `S/ ${(data?.totalFacturado ?? 0).toFixed(2)}` },
-            { label: 'Por cobrar', value: `S/ ${(data?.totalPendiente ?? 0).toFixed(2)}` },
-            { label: 'Stock bajo', value: data?.productosStockBajo ?? 0 },
-          ].map((metric) => (
+          {stats.map((metric) => (
             <div key={metric.label} className="card-surface">
-              <p className="text-sm text-slate-500">{metric.label}</p>
-              <p className="mt-3 text-3xl font-semibold text-emerald-900">{metric.value}</p>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: metric.tint }}>
+                <metric.Icon size={19} color={metric.color} strokeWidth={1.8} />
+              </div>
+              <p className="mt-4 text-sm text-slate-500">{metric.label}</p>
+              <p className="page-heading mt-1 text-3xl">{metric.value}</p>
             </div>
           ))}
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
           <div className="card-surface">
-            <p className="text-sm text-slate-500">Agenda de hoy</p>
+            <p className="text-base font-extrabold text-[#173d36]">Agenda de hoy</p>
             <div className="mt-6 space-y-3">
               {data?.citas?.length ? data.citas.map((cita) => (
-                <div key={cita.id} className="rounded-3xl bg-emerald-50 p-4">
-                  <p className="font-semibold text-emerald-900">
-                    {new Date(cita.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })} ·{' '}
-                    <ClienteHistorialLink clienteId={cita.cliente.id} nombre={cita.cliente.nombre} className="underline decoration-dotted underline-offset-2 hover:text-emerald-700" />
+                <div key={cita.id} className="flex items-center gap-4 rounded-2xl bg-[#f5faf7] p-4">
+                  <p className="page-heading w-16 shrink-0 text-[15px]">
+                    {new Date(cita.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">{cita.tratamiento}</p>
+                  <div className="min-w-0 flex-1">
+                    <ClienteHistorialLink clienteId={cita.cliente.id} nombre={cita.cliente.nombre} className="font-bold text-[#173d36] underline decoration-dotted underline-offset-2 hover:text-emerald-700" />
+                    <p className="mt-1 text-sm text-slate-600">{cita.tratamiento}</p>
+                  </div>
                 </div>
               )) : <p className="text-sm text-slate-500">No hay citas registradas para hoy.</p>}
             </div>
           </div>
           <div className="card-surface">
-            <p className="text-sm text-slate-500">Cabinas</p>
+            <p className="text-base font-extrabold text-[#173d36]">Cabinas</p>
             <div className="mt-6 space-y-3">
               {data?.cabinas?.length ? data.cabinas.map((cabina) => (
                 <CabinaCard

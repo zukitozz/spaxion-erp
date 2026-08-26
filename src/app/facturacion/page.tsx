@@ -133,15 +133,15 @@ function FacturacionContent() {
     <p className="text-sm text-slate-500">No hay facturas registradas todavía.</p>
   ) : (
     facturas.map((factura) => (
-      <div key={factura.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+      <div key={factura.id} className="rounded-2xl border border-[#eef1ec] bg-[#fdfdfb] p-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-lg font-semibold text-slate-900">
+            <p className="text-[15px] font-bold text-[#173d36]">
               <ClienteHistorialLink clienteId={factura.cliente.id} nombre={factura.cliente.nombre} className="hover:text-emerald-700" />
             </p>
             <p className="text-sm text-slate-500">{factura.tipo} · {factura.metodoPago}</p>
           </div>
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">S/ {factura.total.toFixed(2)}</span>
+          <span className="page-heading text-lg">S/ {factura.total.toFixed(2)}</span>
         </div>
         <p className="mt-3 text-sm text-slate-600">{factura.estado} · {factura.numeracionComprobante || 'Sin comprobante'}</p>
         <div className="mt-3 grid gap-2 text-sm text-slate-500">
@@ -325,17 +325,17 @@ function FacturacionContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Facturación</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Cobros y comprobantes</h1>
+          <p className="eyebrow">Facturación</p>
+          <h1 className="page-heading mt-3 text-3xl">Cobros y comprobantes</h1>
           <p className="mt-2 text-slate-600">Registra ventas, aplica descuentos y genera comprobantes con métodos de pago.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="card-surface">
-            <h2 className="text-xl font-semibold text-emerald-900">Nueva factura</h2>
+            <h2 className="text-xl font-bold text-[#173d36]">Nueva factura</h2>
             <div className="mt-6 space-y-4">
               <div className="relative">
                 <label htmlFor="factura-cliente" className="block text-sm font-medium text-slate-700">Cliente</label>
@@ -347,7 +347,7 @@ function FacturacionContent() {
                   onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
                   autoComplete="off"
                   placeholder="Escribe el nombre del cliente"
-                  className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  className="field mt-2"
                 />
                 {showClienteDropdown && clienteQuery.trim() && !form.clienteId && (
                   <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
@@ -469,7 +469,7 @@ function FacturacionContent() {
                     id="factura-tipo"
                     value={form.tipo}
                     onChange={(event) => setForm((prev) => ({ ...prev, tipo: event.target.value }))}
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    className="field mt-2"
                   >
                     <option value="BOLETA">Boleta</option>
                     <option value="FACTURA">Factura</option>
@@ -482,7 +482,7 @@ function FacturacionContent() {
                     id="factura-metodo-pago"
                     value={form.metodoPago}
                     onChange={(event) => setForm((prev) => ({ ...prev, metodoPago: event.target.value }))}
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    className="field mt-2"
                   >
                     <option value="EFECTIVO">Efectivo</option>
                     <option value="TARJETA">Tarjeta</option>
@@ -502,7 +502,7 @@ function FacturacionContent() {
                       <div className="grid gap-4 sm:grid-cols-[1.2fr_0.9fr_0.9fr]">
                         <div>
                           <label htmlFor={`factura-item-${item.id}-producto`} className="block text-sm font-medium text-slate-700">Producto</label>
-                          <select id={`factura-item-${item.id}-producto`} value={item.productoId} onChange={(event) => selectProduct(index, event.target.value)} className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100">
+                          <select id={`factura-item-${item.id}-producto`} value={item.productoId} onChange={(event) => selectProduct(index, event.target.value)} className="field mt-2 bg-white">
                             <option value="">Servicio / item manual</option>
                             {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre} · stock {producto.stock}</option>)}
                           </select>
@@ -515,7 +515,7 @@ function FacturacionContent() {
                             min={1}
                             value={item.cantidad}
                             onChange={(event) => updateItem(index, { cantidad: Number(event.target.value) || 1 })}
-                            className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                            className="field mt-2 bg-white"
                           />
                         </div>
                         <div>
@@ -526,7 +526,7 @@ function FacturacionContent() {
                             min={0}
                             value={item.precioUnit}
                             onChange={(event) => updateItem(index, { precioUnit: Number(event.target.value) || 0 })}
-                            className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                            className="field mt-2 bg-white"
                           />
                         </div>
                       </div>
@@ -572,7 +572,7 @@ function FacturacionContent() {
                     id="factura-descuento"
                     value={form.descuentoId}
                     onChange={(event) => setForm((prev) => ({ ...prev, descuentoId: event.target.value }))}
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    className="field mt-2 bg-white"
                   >
                     <option value="">Sin descuento</option>
                     {descuentos.map((descuento) => (
@@ -587,9 +587,9 @@ function FacturacionContent() {
                   <span>Total descuento</span>
                   <span>- S/ {descuento.toFixed(2)}</span>
                 </div>
-                <div className="mt-4 border-t border-slate-200 pt-4 text-lg font-semibold text-emerald-900 flex items-center justify-between">
-                  <span>Total</span>
-                  <span>S/ {total.toFixed(2)}</span>
+                <div className="mt-4 flex items-center justify-between border-t border-dashed border-[#dfe8e0] pt-4">
+                  <span className="text-[15px] font-extrabold text-[#173d36]">Total</span>
+                  <span className="page-heading text-2xl">S/ {total.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -617,7 +617,7 @@ function FacturacionContent() {
           </div>
 
           <div className="card-surface">
-            <h2 className="text-xl font-semibold text-emerald-900">Facturas recientes</h2>
+            <h2 className="text-xl font-bold text-[#173d36]">Facturas recientes</h2>
             <div className="mt-6 space-y-4">
               {recentInvoices}
             </div>
@@ -630,7 +630,7 @@ function FacturacionContent() {
 
 export default function FacturacionPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+    <Suspense fallback={<div className="page-shell" />}>
       <FacturacionContent />
     </Suspense>
   )

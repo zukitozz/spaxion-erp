@@ -51,11 +51,11 @@ export default function UsuariosPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <main className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Administración</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Usuarios y roles</h1>
+          <p className="eyebrow">Administración</p>
+          <h1 className="mt-3 page-heading text-3xl">Usuarios y roles</h1>
           <p className="mt-2 text-slate-600">Crea accesos para administradores, supervisores y operadores.</p>
         </div>
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">

@@ -41,8 +41,8 @@ export function CabinaCard({ nombre, estado, atencionActual, onClick }: CabinaCa
       onKeyDown={onClick ? (event) => { if (event.key === 'Enter' || event.key === ' ') onClick() } : undefined}
       className={`rounded-[28px] border p-5 ${estadoStyles[estado]} shadow-sm ${onClick ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-md' : ''}`}
     >
-      <p className="text-sm font-semibold">{nombre}</p>
-      <p className="mt-3 text-2xl font-semibold">{estadoLabels[estado]}</p>
+      <p className="text-sm font-bold opacity-75">{nombre}</p>
+      <p className="page-heading mt-2 text-2xl">{estadoLabels[estado]}</p>
       {atencionActual && (
         <div className="mt-3 space-y-1 text-sm">
           <p className="text-slate-700">
