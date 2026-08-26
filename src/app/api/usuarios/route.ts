@@ -6,7 +6,7 @@ import { requireApiAuth } from '@/lib/api-auth'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const users = await prisma.user.findMany({
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const guard = await requireApiAuth(['ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireApiAuth(['ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const id = new URL(req.url).searchParams.get('id')

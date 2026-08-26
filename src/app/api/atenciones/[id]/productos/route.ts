@@ -4,7 +4,7 @@ import { requireApiAuth } from '@/lib/api-auth'
 
 export const dynamic = 'force-dynamic'
 
-const ROLES_ATENCION = ['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'] as const
+const ROLES_ATENCION = ['ADMIN', 'SUPERVISOR', 'OPERADOR'] as const
 
 const include = {
   producto: { select: { id: true, nombre: true } },

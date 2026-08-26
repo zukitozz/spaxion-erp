@@ -16,26 +16,33 @@ import {
   PanelLeftOpen,
   PhoneCall,
   Receipt,
+  Settings,
   ShoppingBag,
   Sparkles,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
+import type { UserRole } from '@/types/user'
 
-const navigation = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall },
-  { href: '/citas', label: 'Citas', icon: CalendarCheck },
-  { href: '/cabinas', label: 'Cabinas', icon: DoorClosed },
-  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera },
-  { href: '/inventario', label: 'Inventario', icon: Boxes },
-  { href: '/productos', label: 'Productos', icon: ShoppingBag },
-  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles },
-  { href: '/facturacion', label: 'Facturación', icon: Receipt },
-  { href: '/reportes', label: 'Reportes', icon: BarChart3 },
-  { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History },
+const STAFF: UserRole[] = ['ADMIN', 'SUPERVISOR', 'OPERADOR']
+
+const navigation: { href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: STAFF },
+  { href: '/clientes', label: 'Clientes', icon: Users, roles: STAFF },
+  { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall, roles: STAFF },
+  { href: '/citas', label: 'Citas', icon: CalendarCheck, roles: STAFF },
+  { href: '/cabinas', label: 'Cabinas', icon: DoorClosed, roles: ['SUPERVISOR'] },
+  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'] },
+  { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
+  { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
+  { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/usuarios', label: 'Usuarios', icon: UserCog, roles: ['SUPERVISOR'] },
+  { href: '/ajustes', label: 'Ajustes', icon: Settings, roles: ['ADMIN'] },
 ]
 
 function getActiveHref(pathname: string) {
@@ -57,6 +64,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const role = session?.user?.role
+  const items = navigation.filter((item) => !role || item.roles.includes(role))
   const activeHref = getActiveHref(pathname)
   const initials = (session?.user?.name || '?')
     .split(' ')
@@ -97,7 +106,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {navigation.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon
             const isActive = item.href === activeHref
             return (
