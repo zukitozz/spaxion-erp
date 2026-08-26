@@ -181,6 +181,7 @@ export async function POST(req: Request) {
         tipoComprobante: CODIGO_SUNAT_TIPO_COMPROBANTE[tipo] ?? tipo,
         numeracionComprobante,
         fechaHora: new Date(),
+        fechaEmision: new Date(),
         totalVenta: String(total),
         gravadas,
         igv,

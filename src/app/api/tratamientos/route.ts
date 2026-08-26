@@ -19,6 +19,11 @@ export async function POST(req: Request) {
   const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
   const body = await req.json()
+
+  if (!normalizeDias(body.diasProximoTratamiento)) {
+    return NextResponse.json({ error: 'Los días sugeridos para el próximo tratamiento son obligatorios' }, { status: 400 })
+  }
+
   const tratamiento = await prisma.tratamiento.create({
     data: {
       nombre: body.nombre,
@@ -41,6 +46,10 @@ export async function PUT(req: Request) {
 
   if (!body.id) {
     return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+  }
+
+  if (!normalizeDias(body.diasProximoTratamiento)) {
+    return NextResponse.json({ error: 'Los días sugeridos para el próximo tratamiento son obligatorios' }, { status: 400 })
   }
 
   const updated = await prisma.$transaction(async (tx) => {

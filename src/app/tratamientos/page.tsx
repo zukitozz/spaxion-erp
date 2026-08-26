@@ -95,11 +95,11 @@ export default function TratamientosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Tratamientos</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Tratamientos e insumos</h1>
+          <p className="eyebrow">Tratamientos</p>
+          <h1 className="mt-3 page-heading text-3xl">Tratamientos e insumos</h1>
           <p className="mt-2 text-slate-600">Define qué productos consume cada servicio para mantener el inventario controlado.</p>
         </div>
 
@@ -112,14 +112,14 @@ export default function TratamientosPage() {
             <textarea id="tratamiento-descripcion" value={form.descripcion} onChange={(event) => setForm({ ...form, descripcion: event.target.value })} className="field min-h-24" />
             <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="tratamiento-precio" className="block text-sm font-medium text-slate-700">Precio</label><input id="tratamiento-precio" type="number" value={form.precio} onChange={(event) => setForm({ ...form, precio: Number(event.target.value) })} className="field mt-2" /></div><div><label htmlFor="tratamiento-duracion" className="block text-sm font-medium text-slate-700">Duración (min)</label><input id="tratamiento-duracion" type="number" value={form.duracionMin} onChange={(event) => setForm({ ...form, duracionMin: Number(event.target.value) })} className="field mt-2" /></div></div>
             <div>
-              <label htmlFor="tratamiento-dias" className="block text-sm font-medium text-slate-700">Días sugeridos para el próximo tratamiento</label>
-              <input id="tratamiento-dias" type="number" min={1} value={form.diasProximoTratamiento} onChange={(event) => setForm({ ...form, diasProximoTratamiento: event.target.value })} className="field mt-2" placeholder="Ej. 30" />
-              <p className="mt-1 text-xs text-slate-500">Se usa para calcular la fecha sugerida en Seguimiento de clientes. Déjalo vacío si no aplica.</p>
+              <label htmlFor="tratamiento-dias" className="block text-sm font-medium text-slate-700">Días sugeridos para el próximo tratamiento <span className="text-rose-600">*</span></label>
+              <input id="tratamiento-dias" type="number" min={1} required value={form.diasProximoTratamiento} onChange={(event) => setForm({ ...form, diasProximoTratamiento: event.target.value })} className="field mt-2" placeholder="Ej. 30" />
+              <p className="mt-1 text-xs text-slate-500">Obligatorio. Se usa para calcular la fecha sugerida en Seguimiento de clientes y se propone al finalizar una atención con este tratamiento.</p>
             </div>
 
             <div className="border-t border-slate-200 pt-5"><div className="flex items-center justify-between gap-4"><div><h3 className="font-semibold text-emerald-900">Productos consumidos</h3><p className="mt-1 text-xs text-slate-500">Ejemplo: algodón 2 unidades, alcohol 10 ml.</p></div><button type="button" onClick={addInsumo} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700">+ Agregar</button></div><div className="mt-4 space-y-3">{form.insumos.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Este tratamiento no tiene insumos asignados.</p>}{form.insumos.map((insumo, index) => <div key={`${insumo.productoId}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_0.6fr_0.7fr_auto]"><select aria-label="Producto del insumo" value={insumo.productoId} onChange={(event) => updateInsumo(index, { productoId: event.target.value })} className="field"><option value="">Selecciona producto</option>{productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre} · stock {producto.stock}</option>)}</select><input aria-label="Cantidad del insumo" type="number" min="0.01" step="0.01" value={insumo.cantidad} onChange={(event) => updateInsumo(index, { cantidad: Number(event.target.value) })} className="field"/><input aria-label="Unidad del insumo" value={insumo.unidad} onChange={(event) => updateInsumo(index, { unidad: event.target.value })} className="field" placeholder="unidad"/><button type="button" onClick={() => removeInsumo(index)} className="px-2 text-sm text-rose-600">Quitar</button></div>)}</div></div>
 
-            <button type="button" disabled={loading || !form.nombre} onClick={() => void handleSubmit()} className="btn-brand w-full disabled:opacity-60">{loading ? 'Guardando...' : editingId ? 'Actualizar tratamiento' : 'Crear tratamiento'}</button>
+            <button type="button" disabled={loading || !form.nombre || Number(form.diasProximoTratamiento) <= 0} onClick={() => void handleSubmit()} className="btn-brand w-full disabled:opacity-60">{loading ? 'Guardando...' : editingId ? 'Actualizar tratamiento' : 'Crear tratamiento'}</button>
             {message && <p className="text-sm text-slate-600">{message}</p>}
           </div>
 
