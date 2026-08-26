@@ -7,7 +7,7 @@ import { cambiarEstadoCabina } from '@/lib/cabinas'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()

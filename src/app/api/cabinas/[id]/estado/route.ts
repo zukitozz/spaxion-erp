@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 const ESTADOS_VALIDOS = ['DISPONIBLE', 'ATENCION', 'LIMPIEZA', 'MANTENIMIENTO']
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()

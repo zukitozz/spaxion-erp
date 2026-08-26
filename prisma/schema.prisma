@@ -13,6 +13,8 @@ model User {
   email                 String                 @unique
   password              String
   role                  UserRole               @default(ADMIN)
+  celular1              String?
+  celular2              String?
   createdAt             DateTime               @default(now())
   cierresTurno          CierreTurno[]
   facturas              Factura[]
@@ -24,7 +26,6 @@ model User {
 enum UserRole {
   SUPERVISOR
   ADMIN
-  OPERADOR
   ESTETICISTA
 }
 

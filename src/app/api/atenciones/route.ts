@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'ESTETICISTA'])
   if (guard) return guard
 
   const body = await req.json()

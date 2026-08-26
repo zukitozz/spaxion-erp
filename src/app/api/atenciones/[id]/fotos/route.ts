@@ -5,7 +5,7 @@ import { guardarFotoAtencion } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
-const ROLES_ATENCION = ['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'] as const
+const ROLES_ATENCION = ['ADMIN', 'SUPERVISOR', 'ESTETICISTA'] as const
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const guard = await requireApiAuth()

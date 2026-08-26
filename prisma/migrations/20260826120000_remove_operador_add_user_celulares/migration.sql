@@ -1,0 +1,12 @@
+-- Remove OPERADOR from UserRole (no existing rows use this value)
+CREATE TYPE "UserRole_new" AS ENUM ('SUPERVISOR', 'ADMIN', 'ESTETICISTA');
+ALTER TABLE "User" ALTER COLUMN "role" DROP DEFAULT;
+ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole_new" USING ("role"::text::"UserRole_new");
+ALTER TYPE "UserRole" RENAME TO "UserRole_old";
+ALTER TYPE "UserRole_new" RENAME TO "UserRole";
+DROP TYPE "UserRole_old";
+ALTER TABLE "User" ALTER COLUMN "role" SET DEFAULT 'ADMIN';
+
+-- Add up to two celular numbers per user
+ALTER TABLE "User" ADD COLUMN "celular1" TEXT;
+ALTER TABLE "User" ADD COLUMN "celular2" TEXT;

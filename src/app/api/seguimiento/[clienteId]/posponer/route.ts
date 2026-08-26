@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 const MS_POR_DIA = 24 * 60 * 60 * 1000
 
 export async function POST(req: Request, { params }: { params: { clienteId: string } }) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()
