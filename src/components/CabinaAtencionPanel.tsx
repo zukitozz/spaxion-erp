@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AtencionActual, CabinaEstado } from '@/components/CabinaCard'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
@@ -38,6 +38,10 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const [horasExpiracionCita, setHorasExpiracionCita] = useState(24)
   const [modo, setModo] = useState<'walkin' | 'cita'>('walkin')
   const [form, setForm] = useState({ clienteId: '', tratamientoId: '', esteticistaId: '', citaId: '', notas: '' })
+  const [clienteQuery, setClienteQuery] = useState('')
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const [tratamientoQuery, setTratamientoQuery] = useState('')
+  const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [productos, setProductos] = useState<Producto[]>([])
@@ -116,7 +120,20 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const seleccionarCita = (citaId: string) => {
     const cita = citas.find((c) => c.id === citaId)
     setForm((prev) => ({ ...prev, citaId, clienteId: cita?.cliente.id ?? prev.clienteId }))
+    if (cita) setClienteQuery(cita.cliente.nombre)
   }
+
+  const clientesFiltrados = useMemo(() => {
+    const query = clienteQuery.trim().toLowerCase()
+    if (!query) return clientes.slice(0, 8)
+    return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [clientes, clienteQuery])
+
+  const tratamientosFiltrados = useMemo(() => {
+    const query = tratamientoQuery.trim().toLowerCase()
+    if (!query) return tratamientos.slice(0, 8)
+    return tratamientos.filter((tratamiento) => tratamiento.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [tratamientos, tratamientoQuery])
 
   const iniciarAtencion = async () => {
     if (!form.clienteId || !form.tratamientoId || !form.esteticistaId) {
@@ -287,24 +304,74 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
             </div>
           )}
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-700">Cliente</label>
-            <select value={form.clienteId} onChange={(e) => setForm((prev) => ({ ...prev, clienteId: e.target.value }))} className="field mt-2">
-              <option value="">Selecciona cliente</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-              ))}
-            </select>
+            <input
+              value={clienteQuery}
+              onChange={(e) => {
+                setClienteQuery(e.target.value)
+                setForm((prev) => ({ ...prev, clienteId: '' }))
+                setShowClienteDropdown(true)
+              }}
+              onFocus={() => setShowClienteDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
+              autoComplete="off"
+              placeholder="Busca un cliente por nombre"
+              className="field mt-2"
+            />
+            {showClienteDropdown && clientesFiltrados.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                {clientesFiltrados.map((cliente) => (
+                  <button
+                    key={cliente.id}
+                    type="button"
+                    onMouseDown={() => {
+                      setForm((prev) => ({ ...prev, clienteId: cliente.id }))
+                      setClienteQuery(cliente.nombre)
+                      setShowClienteDropdown(false)
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                  >
+                    {cliente.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-700">Tratamiento</label>
-            <select value={form.tratamientoId} onChange={(e) => setForm((prev) => ({ ...prev, tratamientoId: e.target.value }))} className="field mt-2">
-              <option value="">Selecciona tratamiento</option>
-              {tratamientos.map((tratamiento) => (
-                <option key={tratamiento.id} value={tratamiento.id}>{tratamiento.nombre}</option>
-              ))}
-            </select>
+            <input
+              value={tratamientoQuery}
+              onChange={(e) => {
+                setTratamientoQuery(e.target.value)
+                setForm((prev) => ({ ...prev, tratamientoId: '' }))
+                setShowTratamientoDropdown(true)
+              }}
+              onFocus={() => setShowTratamientoDropdown(true)}
+              onBlur={() => setTimeout(() => setShowTratamientoDropdown(false), 150)}
+              autoComplete="off"
+              placeholder="Busca un tratamiento por nombre"
+              className="field mt-2"
+            />
+            {showTratamientoDropdown && tratamientosFiltrados.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                {tratamientosFiltrados.map((tratamiento) => (
+                  <button
+                    key={tratamiento.id}
+                    type="button"
+                    onMouseDown={() => {
+                      setForm((prev) => ({ ...prev, tratamientoId: tratamiento.id }))
+                      setTratamientoQuery(tratamiento.nombre)
+                      setShowTratamientoDropdown(false)
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                  >
+                    {tratamiento.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

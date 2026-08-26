@@ -48,14 +48,22 @@ export default function CitasPage() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
   const [form, setForm] = useState({ clienteId: '', fecha: '', tratamiento: '', estado: 'PENDIENTE' })
+  const [clienteQuery, setClienteQuery] = useState('')
   const [loading, setLoading] = useState(false)
-  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null)
+  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(() => new Date().toISOString().slice(0, 10))
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
   const semana = useMemo(() => buildWeek(), [])
 
   const citasVisibles = diaSeleccionado
     ? citas.filter((cita) => cita.fecha.slice(0, 10) === diaSeleccionado)
     : citas
+
+  const clientesFiltrados = useMemo(() => {
+    const query = clienteQuery.trim().toLowerCase()
+    if (!query) return clientes.slice(0, 8)
+    return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [clientes, clienteQuery])
 
   const tratamientosFiltrados = useMemo(() => {
     const query = form.tratamiento.trim().toLowerCase()
@@ -79,6 +87,9 @@ export default function CitasPage() {
   }, [])
 
   const handleCreate = async () => {
+    // TODO: sincronizar con Google Calendar al crear la cita.
+    // Ya existe el endpoint POST /api/integraciones/google-calendar (requiere
+    // GOOGLE_CALENDAR_ACCESS_TOKEN vía OAuth) pero no se invoca desde aquí.
     setLoading(true)
     const response = await fetch('/api/citas', {
       method: 'POST',
@@ -88,6 +99,7 @@ export default function CitasPage() {
     const created = await response.json()
     setCitas((prev) => [created, ...prev])
     setForm({ clienteId: '', fecha: '', tratamiento: '', estado: 'PENDIENTE' })
+    setClienteQuery('')
     setLoading(false)
   }
 
@@ -125,16 +137,39 @@ export default function CitasPage() {
             <h2 className="text-xl font-bold text-[#173d36]">Nueva cita</h2>
             <div className="mt-6 space-y-4">
               <label className="block text-sm font-medium text-slate-700">Cliente</label>
-              <select
-                value={form.clienteId}
-                onChange={(event) => setForm((prev) => ({ ...prev, clienteId: event.target.value }))}
-                className="field mt-2"
-              >
-                <option value="">Selecciona cliente</option>
-                {clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  value={clienteQuery}
+                  onChange={(event) => {
+                    setClienteQuery(event.target.value)
+                    setForm((prev) => ({ ...prev, clienteId: '' }))
+                    setShowClienteDropdown(true)
+                  }}
+                  onFocus={() => setShowClienteDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
+                  autoComplete="off"
+                  placeholder="Busca un cliente por nombre"
+                  className="field mt-2"
+                />
+                {showClienteDropdown && clientesFiltrados.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                    {clientesFiltrados.map((cliente) => (
+                      <button
+                        key={cliente.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setForm((prev) => ({ ...prev, clienteId: cliente.id }))
+                          setClienteQuery(cliente.nombre)
+                          setShowClienteDropdown(false)
+                        }}
+                        className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                      >
+                        {cliente.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <label className="block text-sm font-medium text-slate-700">Fecha y hora</label>
               <input
@@ -185,7 +220,7 @@ export default function CitasPage() {
 
               <button
                 type="button"
-                disabled={loading}
+                disabled={loading || !form.clienteId || !form.fecha}
                 onClick={handleCreate}
                 className="btn-brand w-full disabled:opacity-60"
               >
