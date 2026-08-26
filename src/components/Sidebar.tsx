@@ -42,7 +42,7 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
   { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/usuarios', label: 'Usuarios', icon: UserCog, roles: ['SUPERVISOR'] },
-  { href: '/ajustes', label: 'Ajustes', icon: Settings, roles: ['ADMIN'] },
+  { href: '/ajustes', label: 'Ajustes', icon: Settings, roles: ['SUPERVISOR'] },
 ]
 
 function getActiveHref(pathname: string) {

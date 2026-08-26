@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const guard = await requireApiAuth(['ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()
