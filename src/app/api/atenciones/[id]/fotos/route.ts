@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
-import { guardarFotoAtencion } from '@/lib/storage'
+import { guardarFotoAtencion, urlFirmada } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +16,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     orderBy: { creadoAt: 'asc' },
   })
 
-  return NextResponse.json(fotos)
+  const fotosConUrl = await Promise.all(
+    fotos.map(async ({ key, ...foto }) => ({ ...foto, url: await urlFirmada(key) }))
+  )
+
+  return NextResponse.json(fotosConUrl)
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -37,15 +41,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   try {
-    const url = await guardarFotoAtencion(atencion.id, file)
-    const foto = await prisma.atencionFoto.create({
+    const key = await guardarFotoAtencion(atencion.id, file)
+    const { key: _key, ...foto } = await prisma.atencionFoto.create({
       data: {
         atencionId: atencion.id,
-        url,
+        key,
         descripcion: typeof descripcion === 'string' && descripcion ? descripcion : null,
       },
     })
-    return NextResponse.json(foto, { status: 201 })
+    return NextResponse.json({ ...foto, url: await urlFirmada(key) }, { status: 201 })
   } catch (error) {
     if (error instanceof Error && error.message === 'TIPO_NO_SOPORTADO') {
       return NextResponse.json({ error: 'Formato de imagen no soportado (usa JPG, PNG, WEBP o HEIC)' }, { status: 400 })

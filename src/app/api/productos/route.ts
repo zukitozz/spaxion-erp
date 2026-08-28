@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
+import { presignarProducto, presignarProductos } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,8 +11,7 @@ export async function GET() {
   const productos = await prisma.producto.findMany({
     orderBy: { creadoAt: 'desc' },
   })
-  console.log('Fetched productos:', productos) // Log the fetched products
-  return NextResponse.json(productos)
+  return NextResponse.json(await presignarProductos(productos))
 }
 
 export async function POST(req: Request) {
@@ -67,7 +67,7 @@ export async function PUT(req: Request) {
       },
     })
 
-    return NextResponse.json(updated)
+    return NextResponse.json(await presignarProducto(updated))
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as { code?: string }).code === 'P2002') {
       return NextResponse.json({ error: 'Ese código de barras ya está asignado a otro producto' }, { status: 409 })
