@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Image as ImageIcon } from 'lucide-react'
+import { Spinner } from '@/components/Spinner'
+import { Pagination } from '@/components/Pagination'
+import { useToast } from '@/components/Toast'
 
 interface Producto {
   id: string
@@ -25,9 +28,11 @@ interface Movimiento {
   usuario: { name: string }
 }
 
+const PAGE_SIZE = 10
 const tipoMovLabels: Record<Movimiento['tipo'], string> = { ENTRADA: 'Entrada', SALIDA: 'Salida', AJUSTE: 'Ajuste' }
 
-function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: (producto: Producto) => void }) {
+function PanelGestionInventario({ producto, onUpdated }: { producto: Producto; onUpdated: (producto: Producto) => void }) {
+  const toast = useToast()
   const [codigoBarras, setCodigoBarras] = useState(producto.codigoBarras || '')
   const [guardandoCodigo, setGuardandoCodigo] = useState(false)
   const [subiendoFoto, setSubiendoFoto] = useState(false)
@@ -36,11 +41,10 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
   const [movMotivo, setMovMotivo] = useState('')
   const [registrandoMov, setRegistrandoMov] = useState(false)
   const [movimientos, setMovimientos] = useState<Movimiento[] | null>(null)
-  const [error, setError] = useState('')
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false)
 
   const guardarCodigo = async () => {
     setGuardandoCodigo(true)
-    setError('')
     const response = await fetch('/api/inventario', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -49,36 +53,37 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
     setGuardandoCodigo(false)
     if (!response.ok) {
       const data = await response.json()
-      setError(data.error || 'No se pudo guardar el código de barras')
+      toast.error(data.error || 'No se pudo guardar el código de barras')
       return
     }
     onUpdated(await response.json())
+    toast.success('Código de barras guardado')
   }
 
   const subirFoto = async (file: File) => {
     setSubiendoFoto(true)
-    setError('')
     const body = new FormData()
     body.append('file', file)
     const response = await fetch(`/api/productos/${producto.id}/imagen`, { method: 'POST', body })
     setSubiendoFoto(false)
     if (!response.ok) {
       const data = await response.json()
-      setError(data.error || 'No se pudo subir la foto')
+      toast.error(data.error || 'No se pudo subir la foto')
       return
     }
     onUpdated(await response.json())
   }
 
   const cargarMovimientos = async () => {
+    setCargandoMovimientos(true)
     const response = await fetch(`/api/inventario/movimientos?productoId=${producto.id}`)
     const data = await response.json()
     setMovimientos(Array.isArray(data) ? data : [])
+    setCargandoMovimientos(false)
   }
 
   const registrarMovimiento = async () => {
     setRegistrandoMov(true)
-    setError('')
     const response = await fetch('/api/inventario/movimientos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,18 +92,19 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
     setRegistrandoMov(false)
     if (!response.ok) {
       const data = await response.json()
-      setError(data.error || 'No se pudo registrar el movimiento')
+      toast.error(data.error || 'No se pudo registrar el movimiento')
       return
     }
     const data = await response.json()
     onUpdated(data.producto)
     setMovCantidad(1)
     setMovMotivo('')
+    toast.success('Movimiento registrado')
     if (movimientos) void cargarMovimientos()
   }
 
   return (
-    <div className="card-surface">
+    <div>
       <div className="flex items-start gap-4">
         <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
           {producto.imagenUrl ? (
@@ -120,17 +126,17 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
         </div>
       </div>
 
-      {error && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs text-rose-900">{error}</p>}
-
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div className="min-w-[10rem] flex-1">
           <label className="block text-xs font-medium text-slate-700">Código de barras</label>
           <input value={codigoBarras} onChange={(event) => setCodigoBarras(event.target.value)} className="field !mt-1" placeholder="Escanea o escribe el código" />
         </div>
-        <button type="button" onClick={() => void guardarCodigo()} disabled={guardandoCodigo} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">
+        <button type="button" onClick={() => void guardarCodigo()} disabled={guardandoCodigo} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60">
+          {guardandoCodigo && <Spinner />}
           {guardandoCodigo ? 'Guardando...' : 'Guardar código'}
         </button>
-        <label className="cursor-pointer rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+          {subiendoFoto && <Spinner />}
           {subiendoFoto ? 'Subiendo...' : 'Subir foto'}
           <input
             type="file"
@@ -165,12 +171,14 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
             <label className="block text-xs font-medium text-slate-700">Motivo (opcional)</label>
             <input value={movMotivo} onChange={(event) => setMovMotivo(event.target.value)} className="field !mt-1" />
           </div>
-          <button type="button" disabled={registrandoMov} onClick={() => void registrarMovimiento()} className="rounded-xl border border-emerald-200 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60">
+          <button type="button" disabled={registrandoMov} onClick={() => void registrarMovimiento()} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60">
+            {registrandoMov && <Spinner />}
             {registrandoMov ? 'Guardando...' : 'Registrar'}
           </button>
         </div>
 
-        <button type="button" onClick={() => (movimientos ? setMovimientos(null) : void cargarMovimientos())} className="mt-3 text-xs font-semibold text-emerald-700">
+        <button type="button" onClick={() => (movimientos ? setMovimientos(null) : void cargarMovimientos())} className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-700">
+          {cargandoMovimientos && <Spinner />}
           {movimientos ? 'Ocultar historial' : 'Ver historial de movimientos'}
         </button>
 
@@ -195,19 +203,35 @@ function ProductoCard({ producto, onUpdated }: { producto: Producto; onUpdated: 
 
 export default function InventarioPage() {
   const [productos, setProductos] = useState<Producto[]>([])
-  const [loading, setLoading] = useState(true)
+  const [cargando, setCargando] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [seleccionado, setSeleccionado] = useState<Producto | null>(null)
 
   const load = async () => {
     const response = await fetch('/api/inventario')
     const data = await response.json()
     setProductos(Array.isArray(data) ? data : [])
-    setLoading(false)
+    setCargando(false)
   }
 
   useEffect(() => { void load() }, [])
 
+  const productosFiltrados = useMemo(() => {
+    const query = busqueda.trim().toLowerCase()
+    if (!query) return productos
+    return productos.filter((producto) => producto.nombre.toLowerCase().includes(query))
+  }, [productos, busqueda])
+
+  const totalPages = Math.max(1, Math.ceil(productosFiltrados.length / PAGE_SIZE))
+  const paginaActual = Math.min(pagina, totalPages)
+  const productosPagina = productosFiltrados.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
+
+  useEffect(() => { setPagina(1) }, [busqueda])
+
   const handleUpdated = (updated: Producto) => {
     setProductos((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)))
+    setSeleccionado((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev))
   }
 
   return (
@@ -219,16 +243,82 @@ export default function InventarioPage() {
           <p className="mt-2 text-slate-600">Código de barras, foto de producto y movimientos de entrada/salida/ajuste con trazabilidad.</p>
         </div>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          {loading ? (
-            <div className="card-surface">Cargando inventario...</div>
-          ) : productos.length === 0 ? (
-            <div className="card-surface">No hay productos registrados.</div>
-          ) : (
-            productos.map((producto) => <ProductoCard key={producto.id} producto={producto} onUpdated={handleUpdated} />)
-          )}
-        </section>
+        <div className="card-surface">
+          <h2 className="text-xl font-semibold text-emerald-900">Listado</h2>
+
+          <input
+            value={busqueda}
+            onChange={(event) => setBusqueda(event.target.value)}
+            placeholder="Buscar por nombre..."
+            className="field mt-4"
+          />
+
+          <div className="mt-6">
+            {cargando ? (
+              <p className="flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando inventario...</p>
+            ) : productosPagina.length === 0 ? (
+              <p className="text-sm text-slate-500">No se encontraron productos.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead>
+                    <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <th className="pb-3 pr-4">Nombre</th>
+                      <th className="pb-3 pr-4 text-right">Precio venta</th>
+                      <th className="pb-3 pr-4 text-right">Stock</th>
+                      <th className="pb-3 pr-4">Estado</th>
+                      <th className="pb-3 pr-4">Código de barras</th>
+                      <th className="pb-3">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productosPagina.map((producto) => (
+                      <tr key={producto.id} className="border-t border-[#eef1ec]">
+                        <td className="py-3 pr-4 font-semibold text-[#173d36]">{producto.nombre}</td>
+                        <td className="py-3 pr-4 text-right text-slate-600">S/ {producto.precioVenta.toFixed(2)}</td>
+                        <td className="py-3 pr-4 text-right text-slate-600">{producto.stock}</td>
+                        <td className="py-3 pr-4">
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${producto.stock <= producto.alertaStock ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'}`}>
+                            {producto.stock <= producto.alertaStock ? 'Stock bajo' : 'Stock OK'}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-slate-600">{producto.codigoBarras || 'Sin asignar'}</td>
+                        <td className="py-3">
+                          <button type="button" onClick={() => setSeleccionado(producto)} className="text-sm font-semibold text-emerald-700">Gestionar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <Pagination page={paginaActual} totalPages={totalPages} onChange={setPagina} />
+        </div>
       </div>
+
+      {seleccionado && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
+          onClick={() => setSeleccionado(null)}
+        >
+          <div className="card-surface w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold text-emerald-900">Gestionar inventario</h2>
+              <button
+                type="button"
+                onClick={() => setSeleccionado(null)}
+                className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+                aria-label="Cerrar"
+              >✕</button>
+            </div>
+            <div className="mt-6">
+              <PanelGestionInventario producto={seleccionado} onUpdated={handleUpdated} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
