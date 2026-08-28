@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Modal } from '@/components/Modal'
+import { useToast } from '@/components/Toast'
 
 interface Cliente {
   id: string
@@ -58,6 +59,7 @@ const HORAS_OPCIONES = Array.from({ length: 96 }, (_, i) => {
 })
 
 export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos, onClose, onGuardado, onEliminado }: CitaFormModalProps) {
+  const toast = useToast()
   const [clienteId, setClienteId] = useState(cita?.cliente?.id || '')
   const [clienteQuery, setClienteQuery] = useState(cita?.cliente?.nombre || '')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
@@ -113,6 +115,7 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
     const guardada = await response.json()
     onGuardado(guardada)
     onClose()
+    toast.success(modo === 'crear' ? 'Cita creada' : 'Cita actualizada')
   }
 
   const eliminar = async () => {
@@ -128,6 +131,7 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
     }
     onEliminado(cita.id)
     onClose()
+    toast.success('Cita eliminada')
   }
 
   return (

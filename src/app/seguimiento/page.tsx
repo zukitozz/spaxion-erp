@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
+import { useToast } from '@/components/Toast'
 
 type ColorEstado = 'VENCIDO' | 'PRONTO' | 'EN_RANGO' | 'SIN_DATO'
 
@@ -43,6 +44,7 @@ function formatearDiasRestantes(dias: number | null) {
 }
 
 export default function SeguimientoPage() {
+  const toast = useToast()
   const [clientes, setClientes] = useState<SeguimientoCliente[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -73,8 +75,12 @@ export default function SeguimientoPage() {
       body: JSON.stringify({ dias }),
     })
     setPosponiendoId(null)
-    if (!response.ok) return
-    void load()
+    if (!response.ok) {
+      toast.error('No se pudo posponer el aviso')
+      return
+    }
+    await load()
+    toast.success(`Aviso pospuesto ${dias} días`)
   }
 
   return (

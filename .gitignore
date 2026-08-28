@@ -10,3 +10,5 @@ public/uploads
 .env.production.local
 .claude/settings.local.json
 tsconfig.tsbuildinfo
+.vercel
+.env*

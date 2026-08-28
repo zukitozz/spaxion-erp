@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useToast } from '@/components/Toast'
 
 interface Foto {
   id: string
@@ -18,6 +19,7 @@ function formatearFecha(fecha: string) {
 }
 
 export function AtencionFotos({ atencionId }: AtencionFotosProps) {
+  const toast = useToast()
   const [fotos, setFotos] = useState<Foto[]>([])
   const [descripcion, setDescripcion] = useState('')
   const [subiendo, setSubiendo] = useState(false)
@@ -49,6 +51,7 @@ export function AtencionFotos({ atencionId }: AtencionFotosProps) {
     }
     setDescripcion('')
     cargarFotos()
+    toast.success('Foto guardada')
   }
 
   return (

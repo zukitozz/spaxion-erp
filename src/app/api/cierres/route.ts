@@ -10,6 +10,7 @@ export async function GET() {
   const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const cierres = await prisma.cierreTurno.findMany({
+    where: { activo: true },
     include: { usuario: true },
     orderBy: { fechaFin: 'desc' },
   })
