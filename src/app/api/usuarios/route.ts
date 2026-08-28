@@ -27,6 +27,9 @@ export async function POST(req: Request) {
   if (!body.name || !body.email || !body.password) {
     return NextResponse.json({ error: 'Nombre, correo y contraseña requeridos' }, { status: 400 })
   }
+  if (body.role === 'SUPERVISOR') {
+    return NextResponse.json({ error: 'No se pueden crear más usuarios Supervisor' }, { status: 400 })
+  }
 
   try {
     const password = await bcrypt.hash(String(body.password), 12)
@@ -61,6 +64,12 @@ export async function PUT(req: Request) {
   }
   if (!body.name || !body.email) {
     return NextResponse.json({ error: 'Nombre y correo requeridos' }, { status: 400 })
+  }
+  if (body.role === 'SUPERVISOR') {
+    const existente = await prisma.user.findUnique({ where: { id: body.id }, select: { role: true } })
+    if (existente?.role !== 'SUPERVISOR') {
+      return NextResponse.json({ error: 'No se pueden crear más usuarios Supervisor' }, { status: 400 })
+    }
   }
 
   try {

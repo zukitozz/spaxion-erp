@@ -94,7 +94,7 @@ export default function UsuariosPage() {
         <div className="card-surface">
           <p className="eyebrow">Administración</p>
           <h1 className="mt-3 page-heading text-3xl">Usuarios y roles</h1>
-          <p className="mt-2 text-slate-600">Crea y edita accesos para administradores, supervisores y esteticistas.</p>
+          <p className="mt-2 text-slate-600">Crea y edita accesos para administradores y esteticistas.</p>
         </div>
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="card-surface space-y-4">
@@ -118,8 +118,8 @@ export default function UsuariosPage() {
             </div>
             <select aria-label="Rol" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Usuario['role'] })} className="field">
               <option value="ESTETICISTA">Esteticista</option>
-              <option value="SUPERVISOR">Supervisor</option>
               <option value="ADMIN">Administrador</option>
+              {form.role === 'SUPERVISOR' && <option value="SUPERVISOR" disabled>Supervisor (no se pueden crear más)</option>}
             </select>
             <button type="button" disabled={loading || !form.name || !form.email} onClick={() => void saveUser()} className="btn-brand w-full disabled:opacity-60">
               {submitLabel(loading, editingId)}
