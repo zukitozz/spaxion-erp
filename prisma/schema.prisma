@@ -374,6 +374,9 @@ model Configuracion {
   id                    String   @id @default("default")
   nombreEmpresa         String   @default("Spaxión Centro Estético")
   ruc                   String?  @db.VarChar(11)
+  razonSocial           String?
+  direccionFiscal       String?
+  codigoUbigeo          String?
   googleCalendarActivo  Boolean  @default(false)
   googleCalendarId      String?
   googleRefreshTokenEnc String?

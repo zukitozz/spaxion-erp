@@ -51,6 +51,9 @@ interface Factura {
   descuentoAplicado: number | null
   items: FacturaItem[]
   numeracionComprobante: string | null
+  enviado: boolean
+  errors: string | null
+  url: string | null
 }
 
 interface PendienteProducto {
@@ -87,6 +90,7 @@ function FacturacionContent() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [guardandoPendiente, setGuardandoPendiente] = useState(false)
+  const [enviandoId, setEnviandoId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     clienteId: searchParams.get('clienteId') || '',
@@ -127,6 +131,25 @@ function FacturacionContent() {
     return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
   }, [clientes, clienteQuery])
 
+  const enviarASunat = async (facturaId: string) => {
+    setEnviandoId(facturaId)
+    const response = await fetch('/api/facturacion/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ facturaId }),
+    })
+    const data = await response.json()
+    setEnviandoId(null)
+
+    const actualizada: Factura | undefined = data.factura || (response.ok ? data : undefined)
+    if (actualizada) {
+      setFacturas((prev) => prev.map((item) => (item.id === facturaId ? actualizada : item)))
+    }
+    if (!response.ok) {
+      alert(data.error || 'No se pudo enviar el comprobante a SUNAT')
+    }
+  }
+
   const recentInvoices = loading ? (
     <p className="text-sm text-slate-500">Cargando facturas...</p>
   ) : facturas.length === 0 ? (
@@ -152,6 +175,30 @@ function FacturacionContent() {
             </div>
           ))}
         </div>
+        {factura.tipo !== 'NOTA_VENTA' && (
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#eef1ec] pt-3">
+            {factura.enviado ? (
+              <div className="flex items-center gap-3 text-sm font-semibold text-[#1d6f50]">
+                <span>✓ Enviado a SUNAT</span>
+                {factura.url && (
+                  <a href={factura.url} target="_blank" rel="noreferrer" className="underline">Ver PDF</a>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={enviandoId === factura.id}
+                onClick={() => void enviarASunat(factura.id)}
+                className="rounded-full bg-[#00483f] px-4 py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-60"
+              >
+                {enviandoId === factura.id ? 'Enviando...' : 'Enviar a SUNAT'}
+              </button>
+            )}
+          </div>
+        )}
+        {factura.errors && !factura.enviado && (
+          <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{factura.errors}</p>
+        )}
       </div>
     ))
   )
