@@ -1,15 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { BrandLogo } from '@/components/BrandLogo'
 
-export default function LoginPage() {
+function destinoSeguro(callbackUrl: string | null) {
+  if (!callbackUrl || !callbackUrl.startsWith('/') || callbackUrl.startsWith('//')) return '/dashboard'
+  return callbackUrl
+}
+
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -26,7 +32,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    router.push(destinoSeguro(searchParams.get('callbackUrl')))
     router.refresh()
   }
 
@@ -92,5 +98,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

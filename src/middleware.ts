@@ -12,9 +12,13 @@ function coincide(pathname: string, prefijos: string[]) {
 }
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl
+  const { pathname, search } = req.nextUrl
   const role = req.auth?.user?.role
-  if (!role) return NextResponse.next()
+  if (!role) {
+    const loginUrl = new URL('/auth/login', req.url)
+    loginUrl.searchParams.set('callbackUrl', pathname + search)
+    return NextResponse.redirect(loginUrl)
+  }
 
   if (role === 'ESTETICISTA' && !coincide(pathname, ESTETICISTA_ALLOWED)) {
     return NextResponse.redirect(new URL('/bandeja', req.url))
