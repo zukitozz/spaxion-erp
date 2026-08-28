@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import { Modal } from '@/components/Modal'
@@ -129,6 +129,10 @@ function HistoricoAtencionesContent() {
     desde: '',
     hasta: '',
   }))
+  const [clienteQuery, setClienteQuery] = useState('')
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const [tratamientoQuery, setTratamientoQuery] = useState('')
+  const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -143,6 +147,24 @@ function HistoricoAtencionesContent() {
       setEsteticistas(Array.isArray(esteticistasData) ? esteticistasData : [])
     })
   }, [])
+
+  useEffect(() => {
+    if (!filtros.clienteId || clienteQuery) return
+    const match = clientes.find((cliente) => cliente.id === filtros.clienteId)
+    if (match) setClienteQuery(match.nombre)
+  }, [clientes, filtros.clienteId, clienteQuery])
+
+  const clientesFiltrados = useMemo(() => {
+    const query = clienteQuery.trim().toLowerCase()
+    if (!query) return clientes.slice(0, 8)
+    return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [clientes, clienteQuery])
+
+  const tratamientosFiltrados = useMemo(() => {
+    const query = tratamientoQuery.trim().toLowerCase()
+    if (!query) return tratamientos.slice(0, 8)
+    return tratamientos.filter((tratamiento) => tratamiento.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [tratamientos, tratamientoQuery])
 
   const buscar = async (pageToLoad = 1) => {
     setLoading(true)
@@ -171,11 +193,11 @@ function HistoricoAtencionesContent() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Histórico</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Histórico de Atenciones</h1>
+          <p className="eyebrow">Histórico</p>
+          <h1 className="mt-3 page-heading text-3xl">Histórico de Atenciones</h1>
           <p className="mt-2 text-slate-600">Filtra por fecha, paciente y tratamiento. Pasa el cursor sobre la cámara para ver fotos y haz clic en una fila para el detalle.</p>
         </div>
 
@@ -188,19 +210,73 @@ function HistoricoAtencionesContent() {
             <div className="card-surface">
               <h2 className="text-xl font-semibold text-emerald-900">Filtros</h2>
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-slate-700">Paciente</label>
-                  <select value={filtros.clienteId} onChange={(e) => setFiltros((prev) => ({ ...prev, clienteId: e.target.value }))} className="field mt-2">
-                    <option value="">Todos</option>
-                    {clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>)}
-                  </select>
+                  <input
+                    value={clienteQuery}
+                    onChange={(e) => {
+                      setClienteQuery(e.target.value)
+                      setFiltros((prev) => ({ ...prev, clienteId: '' }))
+                      setShowClienteDropdown(true)
+                    }}
+                    onFocus={() => setShowClienteDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
+                    autoComplete="off"
+                    placeholder="Todos"
+                    className="field mt-2"
+                  />
+                  {showClienteDropdown && clientesFiltrados.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                      {clientesFiltrados.map((cliente) => (
+                        <button
+                          key={cliente.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setFiltros((prev) => ({ ...prev, clienteId: cliente.id }))
+                            setClienteQuery(cliente.nombre)
+                            setShowClienteDropdown(false)
+                          }}
+                          className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                        >
+                          {cliente.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-slate-700">Tratamiento</label>
-                  <select value={filtros.tratamientoId} onChange={(e) => setFiltros((prev) => ({ ...prev, tratamientoId: e.target.value }))} className="field mt-2">
-                    <option value="">Todos</option>
-                    {tratamientos.map((tratamiento) => <option key={tratamiento.id} value={tratamiento.id}>{tratamiento.nombre}</option>)}
-                  </select>
+                  <input
+                    value={tratamientoQuery}
+                    onChange={(e) => {
+                      setTratamientoQuery(e.target.value)
+                      setFiltros((prev) => ({ ...prev, tratamientoId: '' }))
+                      setShowTratamientoDropdown(true)
+                    }}
+                    onFocus={() => setShowTratamientoDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowTratamientoDropdown(false), 150)}
+                    autoComplete="off"
+                    placeholder="Todos"
+                    className="field mt-2"
+                  />
+                  {showTratamientoDropdown && tratamientosFiltrados.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                      {tratamientosFiltrados.map((tratamiento) => (
+                        <button
+                          key={tratamiento.id}
+                          type="button"
+                          onMouseDown={() => {
+                            setFiltros((prev) => ({ ...prev, tratamientoId: tratamiento.id }))
+                            setTratamientoQuery(tratamiento.nombre)
+                            setShowTratamientoDropdown(false)
+                          }}
+                          className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                        >
+                          {tratamiento.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Cabina</label>
@@ -310,7 +386,7 @@ function HistoricoAtencionesContent() {
 
 export default function HistoricoAtencionesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+    <Suspense fallback={<div className="page-shell" />}>
       <HistoricoAtencionesContent />
     </Suspense>
   )

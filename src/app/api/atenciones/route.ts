@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'ESTETICISTA'])
   if (guard) return guard
 
   const body = await req.json()
@@ -90,6 +90,19 @@ export async function POST(req: Request) {
       const cabina = await tx.cabina.findUnique({ where: { id: body.cabinaId } })
       if (!cabina) throw new Error('CABINA_NO_ENCONTRADA')
       if (cabina.estado !== 'DISPONIBLE') throw new Error('CABINA_NO_DISPONIBLE')
+
+      if (body.citaId) {
+        const cita = await tx.cita.findUnique({ where: { id: body.citaId } })
+        if (!cita || cita.registrado || !['PENDIENTE', 'CONFIRMADA'].includes(cita.estado)) {
+          throw new Error('CITA_NO_DISPONIBLE')
+        }
+        const configuracion = await tx.configuracion.upsert({ where: { id: 'default' }, update: {}, create: { id: 'default' } })
+        const limiteExpiracion = new Date(cita.fecha.getTime() + configuracion.horasExpiracionCita * 60 * 60 * 1000)
+        if (limiteExpiracion <= new Date()) {
+          await tx.cita.update({ where: { id: cita.id }, data: { estado: 'EXPIRADA' } })
+          throw new Error('CITA_EXPIRADA')
+        }
+      }
 
       const nueva = await tx.atencionCabina.create({
         data: {
@@ -120,6 +133,12 @@ export async function POST(req: Request) {
     }
     if (error instanceof Error && error.message === 'CABINA_NO_ENCONTRADA') {
       return NextResponse.json({ error: 'Cabina no encontrada' }, { status: 404 })
+    }
+    if (error instanceof Error && error.message === 'CITA_EXPIRADA') {
+      return NextResponse.json({ error: 'La cita ha expirado y ya no puede registrarse' }, { status: 409 })
+    }
+    if (error instanceof Error && error.message === 'CITA_NO_DISPONIBLE') {
+      return NextResponse.json({ error: 'La cita ya no está disponible' }, { status: 409 })
     }
     throw error
   }

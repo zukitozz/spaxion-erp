@@ -7,7 +7,7 @@ import { obtenerFacturasPendientes, calcularTotales } from '@/lib/cierres'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const guard = await requireApiAuth(['SUPERVISOR', 'ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const cierres = await prisma.cierreTurno.findMany({
     include: { usuario: true },
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const guard = await requireApiAuth(['SUPERVISOR', 'ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const session = await auth()
@@ -69,7 +69,7 @@ export async function POST() {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireApiAuth(['SUPERVISOR', 'ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const url = new URL(req.url)
   const id = url.searchParams.get('id')

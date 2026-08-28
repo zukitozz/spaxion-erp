@@ -9,11 +9,12 @@ export async function GET() {
   if (guard) return guard
 
   const settings = await prisma.configuracion.upsert({ where: { id: 'default' }, update: {}, create: { id: 'default' } })
-  return NextResponse.json(settings)
+  const { googleRefreshTokenEnc: _googleRefreshTokenEnc, ...safeSettings } = settings
+  return NextResponse.json(safeSettings)
 }
 
 export async function PUT(req: Request) {
-  const guard = await requireApiAuth(['ADMIN'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const body = await req.json()
@@ -25,6 +26,7 @@ export async function PUT(req: Request) {
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
+      horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
     },
     create: {
       id: 'default',
@@ -33,8 +35,10 @@ export async function PUT(req: Request) {
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
+      horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
     },
   })
 
-  return NextResponse.json(settings)
+  const { googleRefreshTokenEnc: _googleRefreshTokenEnc, ...safeSettings } = settings
+  return NextResponse.json(safeSettings)
 }

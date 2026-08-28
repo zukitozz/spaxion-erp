@@ -22,12 +22,28 @@ const emptyForm = {
   email: '', fechaNacimiento: '', peso: '', notas: '',
 }
 
+function documentLabel(cliente: Cliente) {
+  if (cliente.dni) return `DNI ${cliente.dni}`
+  if (cliente.ruc) return `RUC ${cliente.ruc}`
+  return 'Sin documento'
+}
+
+function submitLabel(loading: boolean, editingId: string | null) {
+  if (loading) return 'Guardando...'
+  if (editingId) return 'Actualizar cliente'
+  return 'Crear cliente'
+}
+
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [filtro, setFiltro] = useState<'todos' | 'ruc'>('todos')
+
+  const clientesFiltrados = filtro === 'ruc' ? clientes.filter((cliente) => cliente.ruc) : clientes
+  const formSubmitLabel = submitLabel(loading, editingId)
 
   useEffect(() => {
     fetch('/api/clientes')
@@ -36,6 +52,14 @@ export default function ClientesPage() {
   }, [])
 
   const handleCreate = async () => {
+    const dni = form.dni.trim()
+    const dniDuplicado = dni && clientes.some((cliente) => cliente.dni?.trim() === dni && cliente.id !== editingId)
+
+    if (dniDuplicado) {
+      setError('El DNI ya está registrado en otro cliente')
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -81,18 +105,18 @@ export default function ClientesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Clientes</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Registro y gestión</h1>
+          <p className="eyebrow">Clientes</p>
+          <h1 className="page-heading mt-3 text-3xl">Registro y gestión</h1>
           <p className="mt-2 text-slate-600">Registra clientes y consulta su historial para check-in rápido.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="card-surface">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold text-emerald-900">{editingId ? 'Editar cliente' : 'Nuevo cliente'}</h2>
+              <h2 className="text-xl font-bold text-[#173d36]">{editingId ? 'Editar cliente' : 'Nuevo cliente'}</h2>
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm) }} className="text-sm text-slate-500">Cancelar</button>}
             </div>
             {error && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-900">{error}</p>}
@@ -105,7 +129,7 @@ export default function ClientesPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="cliente-dni" className="block text-sm font-medium text-slate-700">DNI</label>
-                  <input id="cliente-dni" value={form.dni} onChange={(event) => setForm((prev) => ({ ...prev, dni: event.target.value }))} className="field mt-2" placeholder="Para boleta" />
+                  <input id="cliente-dni" value={form.dni} onChange={(event) => { setError(''); setForm((prev) => ({ ...prev, dni: event.target.value })) }} className="field mt-2" placeholder="Para boleta" />
                 </div>
                 <div>
                   <label htmlFor="cliente-ruc" className="block text-sm font-medium text-slate-700">RUC</label>
@@ -152,31 +176,50 @@ export default function ClientesPage() {
               </div>
 
               <button type="button" disabled={loading || !form.nombre} onClick={() => void handleCreate()} className="btn-brand w-full disabled:opacity-60">
-                {loading ? 'Guardando...' : editingId ? 'Actualizar cliente' : 'Crear cliente'}
+                {formSubmitLabel}
               </button>
             </div>
           </div>
 
           <div className="card-surface">
-            <h2 className="text-xl font-semibold text-emerald-900">Clientes registrados</h2>
-            <div className="mt-6 space-y-4">
-              {clientes.map((cliente) => (
-                <div key={cliente.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-lg font-semibold text-slate-900">{cliente.nombre}</p>
-                      <p className="text-sm text-slate-500">
-                        {cliente.dni ? `DNI ${cliente.dni}` : cliente.ruc ? `RUC ${cliente.ruc}` : 'Sin documento'}
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-[#173d36]">Clientes registrados</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFiltro('todos')}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-extrabold transition ${filtro === 'todos' ? 'bg-[#173d36] text-[#fffdf7]' : 'bg-[#f1f5f4] text-slate-600'}`}
+                >Todos</button>
+                <button
+                  type="button"
+                  onClick={() => setFiltro('ruc')}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-extrabold transition ${filtro === 'ruc' ? 'bg-[#173d36] text-[#fffdf7]' : 'bg-[#f1f5f4] text-slate-600'}`}
+                >Con RUC</button>
+              </div>
+            </div>
+            <div className="mt-6 space-y-3">
+              {clientesFiltrados.map((cliente) => (
+                <div key={cliente.id} className="rounded-2xl border border-[#eef1ec] bg-[#fdfdfb] p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ecf8f2] text-sm font-extrabold text-[#1d6f50]">
+                      {cliente.nombre.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-[15px] font-extrabold text-[#173d36]">{cliente.nombre}</p>
+                        {cliente.ruc && <span className="shrink-0 rounded-full bg-[#f5efe4] px-2.5 py-0.5 text-[10px] font-extrabold text-[#9a7e62]">Factura</span>}
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {documentLabel(cliente)}
                         {cliente.distrito ? ` · ${cliente.distrito}` : ''}
                       </p>
                     </div>
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900">Cliente</span>
                   </div>
                   <p className="mt-3 text-sm text-slate-600">Cel: {cliente.celular || '—'} · Email: {cliente.email || '—'}</p>
-                  <div className="mt-4 flex gap-3">
-                    <button type="button" onClick={() => editCliente(cliente)} className="text-sm font-semibold text-emerald-700">Editar</button>
-                    <button type="button" onClick={async () => { await fetch(`/api/clientes?id=${cliente.id}`, { method: 'DELETE' }); setClientes((prev) => prev.filter((item) => item.id !== cliente.id)) }} className="text-sm font-semibold text-rose-600">Eliminar</button>
-                    <Link href={`/historico/atenciones?clienteId=${cliente.id}`} className="text-sm font-semibold text-slate-700">Ver historial</Link>
+                  <div className="mt-4 flex gap-4">
+                    <Link href={`/historico/atenciones?clienteId=${cliente.id}`} className="text-sm font-bold text-[#1d6f50]">Ver historial</Link>
+                    <button type="button" onClick={() => editCliente(cliente)} className="text-sm font-bold text-[#00665b]">Editar</button>
+                    <button type="button" onClick={async () => { await fetch(`/api/clientes?id=${cliente.id}`, { method: 'DELETE' }); setClientes((prev) => prev.filter((item) => item.id !== cliente.id)) }} className="text-sm font-bold text-rose-600">Eliminar</button>
                   </div>
                 </div>
               ))}

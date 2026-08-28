@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
-import { guardarFotoProducto } from '@/lib/storage'
+import { guardarFotoProducto, presignarProducto } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,12 +21,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   try {
-    const url = await guardarFotoProducto(producto.id, file)
+    const key = await guardarFotoProducto(producto.id, file)
     const actualizado = await prisma.producto.update({
       where: { id: producto.id },
-      data: { imagenUrl: url },
+      data: { imagenUrl: key },
     })
-    return NextResponse.json(actualizado)
+    return NextResponse.json(await presignarProducto(actualizado))
   } catch (error) {
     if (error instanceof Error && error.message === 'TIPO_NO_SOPORTADO') {
       return NextResponse.json({ error: 'Formato de imagen no soportado (usa JPG, PNG, WEBP o HEIC)' }, { status: 400 })

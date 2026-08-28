@@ -6,16 +6,20 @@ interface Settings {
   nombreEmpresa: string
   googleCalendarActivo: boolean
   googleCalendarId: string | null
+  googleCuentaEmail: string | null
   facturacionEndpoint: string | null
   facturacionActivo: boolean
+  horasExpiracionCita: number
 }
 
 const initialSettings: Settings = {
   nombreEmpresa: 'Spaxión Centro Estético',
   googleCalendarActivo: false,
   googleCalendarId: '',
+  googleCuentaEmail: null,
   facturacionEndpoint: '',
   facturacionActivo: false,
+  horasExpiracionCita: 24,
 }
 
 export default function AjustesPage() {
@@ -24,6 +28,9 @@ export default function AjustesPage() {
 
   useEffect(() => {
     fetch('/api/ajustes').then((response) => response.json()).then((data) => setSettings(data))
+    const calendarResult = new URLSearchParams(window.location.search).get('calendar')
+    if (calendarResult === 'ok') setMessage('Cuenta de Google conectada correctamente.')
+    if (calendarResult === 'error') setMessage('No se pudo conectar la cuenta de Google. Verifica las credenciales OAuth.')
   }, [])
 
   const save = async () => {
@@ -35,12 +42,20 @@ export default function AjustesPage() {
     setMessage(response.ok ? 'Configuración guardada.' : 'No tienes permisos para guardar ajustes.')
   }
 
+  const disconnectGoogle = async () => {
+    const response = await fetch('/api/integraciones/google-calendar/disconnect', { method: 'POST' })
+    if (response.ok) {
+      setSettings((prev) => ({ ...prev, googleCuentaEmail: null }))
+      setMessage('Cuenta de Google desconectada.')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="card-surface">
-          <p className="text-sm uppercase tracking-[0.35em] text-emerald-700/80">Ajustes</p>
-          <h1 className="mt-3 text-3xl font-semibold text-emerald-900">Configuración de integración</h1>
+          <p className="eyebrow">Ajustes</p>
+          <h1 className="mt-3 page-heading text-3xl">Configuración de integración</h1>
           <p className="mt-2 text-slate-600">Guarda la configuración operativa de la empresa y sus servicios externos.</p>
         </div>
 
@@ -52,10 +67,26 @@ export default function AjustesPage() {
           </div>
           <div className="card-surface space-y-4">
             <h2 className="text-xl font-semibold text-emerald-900">Google Calendar</h2>
-            <p className="text-sm text-slate-600">La conexión OAuth requiere Client ID y Client Secret de Google Cloud.</p>
+            {settings.googleCuentaEmail ? (
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#dfe8e0] bg-[#ecf8f2] px-4 py-3">
+                <p className="text-sm text-[#1d6f50]">Conectado como <strong>{settings.googleCuentaEmail}</strong></p>
+                <button type="button" onClick={() => void disconnectGoogle()} className="text-xs font-bold text-[#b3403a]">Desconectar</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-slate-600">Conecta una cuenta de Google para sincronizar citas con Calendar en ambos sentidos.</p>
+                <a href="/api/integraciones/google-calendar/connect" className="btn-brand inline-block">Conectar con Google</a>
+              </div>
+            )}
             <label htmlFor="calendar-id" className="text-sm font-medium text-slate-700">ID del calendario</label>
-            <input id="calendar-id" value={settings.googleCalendarId || ''} onChange={(e) => setSettings({ ...settings, googleCalendarId: e.target.value })} className="field" placeholder="correo o ID del calendario" />
+            <input id="calendar-id" value={settings.googleCalendarId || ''} onChange={(e) => setSettings({ ...settings, googleCalendarId: e.target.value })} className="field" placeholder="correo o ID del calendario (vacío = calendario principal)" />
             <label className="flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={settings.googleCalendarActivo} onChange={(e) => setSettings({ ...settings, googleCalendarActivo: e.target.checked })} /> Activar sincronización</label>
+          </div>
+          <div className="card-surface space-y-4">
+            <h2 className="text-xl font-semibold text-emerald-900">Vigencia de citas</h2>
+            <p className="text-sm text-slate-600">Después de este plazo una cita pendiente se marca como expirada y no puede registrarse en una cabina.</p>
+            <label htmlFor="horas-expiracion-cita" className="text-sm font-medium text-slate-700">Horas después de la cita</label>
+            <input id="horas-expiracion-cita" type="number" min={1} value={settings.horasExpiracionCita} onChange={(e) => setSettings({ ...settings, horasExpiracionCita: Math.max(1, Number(e.target.value) || 1) })} className="field" />
           </div>
           <div className="card-surface space-y-4">
             <h2 className="text-xl font-semibold text-emerald-900">Proveedor de facturación</h2>

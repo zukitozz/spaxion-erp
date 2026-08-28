@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AtencionActual, CabinaEstado } from '@/components/CabinaCard'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
@@ -9,7 +9,8 @@ import { AtencionFotos } from '@/components/AtencionFotos'
 interface Cliente { id: string; nombre: string }
 interface Tratamiento { id: string; nombre: string; activo: boolean }
 interface Esteticista { id: string; name: string }
-interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente }
+interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente | null }
+interface Configuracion { horasExpiracionCita: number }
 interface Producto { id: string; nombre: string; precioVenta: number; stock: number }
 interface AtencionProductoItem { id: string; cantidad: number; precioUnit: number; producto: { id: string; nombre: string } }
 
@@ -34,8 +35,13 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [esteticistas, setEsteticistas] = useState<Esteticista[]>([])
   const [citas, setCitas] = useState<CitaPendiente[]>([])
+  const [horasExpiracionCita, setHorasExpiracionCita] = useState(24)
   const [modo, setModo] = useState<'walkin' | 'cita'>('walkin')
   const [form, setForm] = useState({ clienteId: '', tratamientoId: '', esteticistaId: '', citaId: '', notas: '' })
+  const [clienteQuery, setClienteQuery] = useState('')
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const [tratamientoQuery, setTratamientoQuery] = useState('')
+  const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [productos, setProductos] = useState<Producto[]>([])
@@ -43,7 +49,11 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
   const [nuevoProductoId, setNuevoProductoId] = useState('')
   const [nuevaCantidad, setNuevaCantidad] = useState(1)
   const [agregandoProducto, setAgregandoProducto] = useState(false)
-  const [diasProximoTratamiento, setDiasProximoTratamiento] = useState('')
+  const [diasProximoTratamiento, setDiasProximoTratamiento] = useState(() =>
+    cabina.atencionActual?.tratamiento.diasProximoTratamiento
+      ? String(cabina.atencionActual.tratamiento.diasProximoTratamiento)
+      : ''
+  )
 
   const atencionId = cabina.atencionActual?.id
 
@@ -93,22 +103,38 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       fetch('/api/tratamientos').then((res) => res.json()),
       fetch('/api/usuarios/esteticistas').then((res) => res.json()),
       fetch('/api/citas').then((res) => res.json()),
-    ]).then(([clientesData, tratamientosData, esteticistasData, citasData]) => {
+      fetch('/api/ajustes').then((res) => res.json()),
+    ]).then(([clientesData, tratamientosData, esteticistasData, citasData, configuracionData]) => {
       setClientes(Array.isArray(clientesData) ? clientesData : [])
       setTratamientos(Array.isArray(tratamientosData) ? tratamientosData.filter((t: Tratamiento) => t.activo) : [])
       setEsteticistas(Array.isArray(esteticistasData) ? esteticistasData : [])
+      setHorasExpiracionCita(Math.max(1, Number((configuracionData as Configuracion).horasExpiracionCita) || 24))
       setCitas(
         Array.isArray(citasData)
-          ? citasData.filter((c: CitaPendiente) => !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA'))
+          ? citasData.filter((c: CitaPendiente) => Boolean(c.cliente) && !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.fecha).getTime() + horasExpiracionCita * 60 * 60 * 1000 > Date.now())
           : []
       )
     })
-  }, [cabina.estado])
+  }, [cabina.estado, horasExpiracionCita])
 
   const seleccionarCita = (citaId: string) => {
     const cita = citas.find((c) => c.id === citaId)
-    setForm((prev) => ({ ...prev, citaId, clienteId: cita?.cliente.id ?? prev.clienteId }))
+    if (!cita?.cliente) return
+    setForm((prev) => ({ ...prev, citaId, clienteId: cita.cliente!.id }))
+    setClienteQuery(cita.cliente.nombre)
   }
+
+  const clientesFiltrados = useMemo(() => {
+    const query = clienteQuery.trim().toLowerCase()
+    if (!query) return clientes.slice(0, 8)
+    return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [clientes, clienteQuery])
+
+  const tratamientosFiltrados = useMemo(() => {
+    const query = tratamientoQuery.trim().toLowerCase()
+    if (!query) return tratamientos.slice(0, 8)
+    return tratamientos.filter((tratamiento) => tratamiento.nombre.toLowerCase().includes(query)).slice(0, 8)
+  }, [tratamientos, tratamientoQuery])
 
   const iniciarAtencion = async () => {
     if (!form.clienteId || !form.tratamientoId || !form.esteticistaId) {
@@ -240,14 +266,14 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
               min={1}
               value={diasProximoTratamiento}
               onChange={(e) => setDiasProximoTratamiento(e.target.value)}
-              placeholder={
-                cabina.atencionActual.tratamiento.diasProximoTratamiento
-                  ? `Por defecto: ${cabina.atencionActual.tratamiento.diasProximoTratamiento} días`
-                  : 'Sin valor sugerido por el tratamiento'
-              }
+              placeholder="Sin valor sugerido por el tratamiento"
               className="field mt-2"
             />
-            <p className="mt-1 text-xs text-slate-500">Déjalo vacío para usar el valor por defecto del tratamiento. Solo aplica al finalizar.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {cabina.atencionActual.tratamiento.diasProximoTratamiento
+                ? 'Precargado con el valor configurado en el tratamiento. Puedes modificarlo antes de finalizar.'
+                : 'Este tratamiento no tiene un valor por defecto configurado.'}
+            </p>
           </div>
 
           <div className="flex gap-3">
@@ -272,31 +298,81 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
                 <option value="">Selecciona cita</option>
                 {citas.map((cita) => (
                   <option key={cita.id} value={cita.id}>
-                    {new Date(cita.fecha).toLocaleString('es-PE')} · {cita.cliente.nombre} · {cita.tratamiento}
+                    {new Date(cita.fecha).toLocaleString('es-PE')} · {cita.cliente?.nombre} · {cita.tratamiento}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-700">Cliente</label>
-            <select value={form.clienteId} onChange={(e) => setForm((prev) => ({ ...prev, clienteId: e.target.value }))} className="field mt-2">
-              <option value="">Selecciona cliente</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-              ))}
-            </select>
+            <input
+              value={clienteQuery}
+              onChange={(e) => {
+                setClienteQuery(e.target.value)
+                setForm((prev) => ({ ...prev, clienteId: '' }))
+                setShowClienteDropdown(true)
+              }}
+              onFocus={() => setShowClienteDropdown(true)}
+              onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
+              autoComplete="off"
+              placeholder="Busca un cliente por nombre"
+              className="field mt-2"
+            />
+            {showClienteDropdown && clientesFiltrados.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                {clientesFiltrados.map((cliente) => (
+                  <button
+                    key={cliente.id}
+                    type="button"
+                    onMouseDown={() => {
+                      setForm((prev) => ({ ...prev, clienteId: cliente.id }))
+                      setClienteQuery(cliente.nombre)
+                      setShowClienteDropdown(false)
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                  >
+                    {cliente.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div>
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-700">Tratamiento</label>
-            <select value={form.tratamientoId} onChange={(e) => setForm((prev) => ({ ...prev, tratamientoId: e.target.value }))} className="field mt-2">
-              <option value="">Selecciona tratamiento</option>
-              {tratamientos.map((tratamiento) => (
-                <option key={tratamiento.id} value={tratamiento.id}>{tratamiento.nombre}</option>
-              ))}
-            </select>
+            <input
+              value={tratamientoQuery}
+              onChange={(e) => {
+                setTratamientoQuery(e.target.value)
+                setForm((prev) => ({ ...prev, tratamientoId: '' }))
+                setShowTratamientoDropdown(true)
+              }}
+              onFocus={() => setShowTratamientoDropdown(true)}
+              onBlur={() => setTimeout(() => setShowTratamientoDropdown(false), 150)}
+              autoComplete="off"
+              placeholder="Busca un tratamiento por nombre"
+              className="field mt-2"
+            />
+            {showTratamientoDropdown && tratamientosFiltrados.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
+                {tratamientosFiltrados.map((tratamiento) => (
+                  <button
+                    key={tratamiento.id}
+                    type="button"
+                    onMouseDown={() => {
+                      setForm((prev) => ({ ...prev, tratamientoId: tratamiento.id }))
+                      setTratamientoQuery(tratamiento.nombre)
+                      setShowTratamientoDropdown(false)
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
+                  >
+                    {tratamiento.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

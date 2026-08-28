@@ -34,6 +34,14 @@ export async function POST(req: Request) {
   if (guard) return guard
   const body = await req.json()
 
+  const dni = typeof body.dni === 'string' ? body.dni.trim() : ''
+  if (dni) {
+    const clienteExistente = await prisma.cliente.findUnique({ where: { dni } })
+    if (clienteExistente) {
+      return NextResponse.json({ error: 'El DNI ya está registrado en otro cliente' }, { status: 409 })
+    }
+  }
+
   try {
     const cliente = await prisma.cliente.create({ data: clienteData(body) })
     return NextResponse.json(cliente, { status: 201 })

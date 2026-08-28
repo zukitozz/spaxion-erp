@@ -1,20 +1,21 @@
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { randomUUID } from 'crypto'
 
-// TODO: este almacenamiento local solo sirve para un único servidor/instancia y no
-// sobrevive a un redeploy en la mayoría de hostings. Antes de llevar esto a producción,
-// migrar a un storage externo (S3 o UploadThing) detrás de esta misma interfaz.
-//
-// Sugerencia: Amazon S3. La base de datos ya vive en AWS RDS, así que S3 comparte
-// región/VPC/credenciales y evita agregar un proveedor nuevo; con URLs firmadas o
-// CloudFront se sirven las fotos de forma privada y es más barato a volumen (fotos de
-// evolución de tratamientos se acumulan por años, por cliente). UploadThing es más
-// rápido de integrar (SDK propio para Next.js, sin configurar buckets/IAM) y puede
-// convenir si se prioriza velocidad de desarrollo sobre costo/control a largo plazo.
+const BUCKET = process.env.AWS_S3_BUCKET || ''
+// 12 horas: alcanza para una jornada de trabajo sin que la URL expire mientras la pantalla sigue abierta.
+const URL_EXPIRACION_SEGUNDOS = 60 * 60 * 12
 
-const UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads', 'atenciones')
-const UPLOAD_ROOT_PRODUCTOS = path.join(process.cwd(), 'public', 'uploads', 'productos')
+// Credenciales explícitas: si la máquina tiene AWS_PROFILE configurado (común en equipos
+// de desarrollo con AWS CLI/CDK), el SDK lo prioriza por defecto sobre estas variables y
+// terminaría usando credenciales de otro usuario/rol. Pasarlas a mano evita esa sorpresa.
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  },
+})
 
 const EXTENSION_BY_MIME: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -26,7 +27,7 @@ const EXTENSION_BY_MIME: Record<string, string> = {
 export const TIPOS_IMAGEN_PERMITIDOS = Object.keys(EXTENSION_BY_MIME)
 export const TAMANO_MAXIMO_FOTO = 8 * 1024 * 1024 // 8 MB
 
-export async function guardarFotoAtencion(atencionId: string, file: File): Promise<string> {
+async function subirFoto(prefix: string, file: File): Promise<string> {
   const extension = EXTENSION_BY_MIME[file.type]
   if (!extension) {
     throw new Error('TIPO_NO_SOPORTADO')
@@ -35,31 +36,32 @@ export async function guardarFotoAtencion(atencionId: string, file: File): Promi
     throw new Error('ARCHIVO_MUY_GRANDE')
   }
 
-  const dir = path.join(UPLOAD_ROOT, atencionId)
-  await mkdir(dir, { recursive: true })
-
-  const filename = `${randomUUID()}${extension}`
+  const key = `${prefix}/${randomUUID()}${extension}`
   const buffer = Buffer.from(await file.arrayBuffer())
-  await writeFile(path.join(dir, filename), buffer)
+  await s3.send(new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: buffer, ContentType: file.type }))
 
-  return `/uploads/atenciones/${atencionId}/${filename}`
+  return key
+}
+
+// Devuelve la key de S3 (no una URL): el bucket es privado y las lecturas se sirven
+// siempre con urlFirmada() para no exponer fotos de clientes/tratamientos públicamente.
+export async function guardarFotoAtencion(atencionId: string, file: File): Promise<string> {
+  return subirFoto(`atenciones/${atencionId}`, file)
 }
 
 export async function guardarFotoProducto(productoId: string, file: File): Promise<string> {
-  const extension = EXTENSION_BY_MIME[file.type]
-  if (!extension) {
-    throw new Error('TIPO_NO_SOPORTADO')
-  }
-  if (file.size > TAMANO_MAXIMO_FOTO) {
-    throw new Error('ARCHIVO_MUY_GRANDE')
-  }
+  return subirFoto(`productos/${productoId}`, file)
+}
 
-  const dir = path.join(UPLOAD_ROOT_PRODUCTOS, productoId)
-  await mkdir(dir, { recursive: true })
+export async function urlFirmada(key: string): Promise<string> {
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn: URL_EXPIRACION_SEGUNDOS })
+}
 
-  const filename = `${randomUUID()}${extension}`
-  const buffer = Buffer.from(await file.arrayBuffer())
-  await writeFile(path.join(dir, filename), buffer)
+export async function presignarProducto<T extends { imagenUrl: string | null }>(producto: T): Promise<T> {
+  if (!producto.imagenUrl) return producto
+  return { ...producto, imagenUrl: await urlFirmada(producto.imagenUrl) }
+}
 
-  return `/uploads/productos/${productoId}/${filename}`
+export async function presignarProductos<T extends { imagenUrl: string | null }>(productos: T[]): Promise<T[]> {
+  return Promise.all(productos.map(presignarProducto))
 }

@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: light;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: var(--font-body), "Trebuchet MS", sans-serif;
   background-color: #fbfaf6;
   color: #173d36;
 }
@@ -19,6 +19,25 @@ body {
     radial-gradient(circle at 8% 0%, rgba(193, 154, 75, 0.12), transparent 28rem),
     radial-gradient(circle at 92% 8%, rgba(0, 72, 63, 0.10), transparent 24rem),
     linear-gradient(180deg, #fbfaf6 0%, #ffffff 100%);
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #9a7e62;
+}
+
+.page-heading {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 600;
+  color: #173d36;
 }
 
 * {
@@ -45,15 +64,23 @@ select {
 }
 
 .btn-brand {
-  @apply inline-flex min-h-11 items-center justify-center rounded-xl bg-[#00665b] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#00483f] hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed;
+  @apply inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-[#00483f] via-[#00665b] to-[#1d6f50] px-6 py-2.5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(0,72,63,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(0,72,63,0.3)] focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed;
 }
 
 .card-surface {
-  @apply rounded-[20px] border border-[#dfe8e0] bg-white/80 p-6 shadow-[0_16px_40px_rgba(0,72,63,0.07)] backdrop-blur-xl;
+  @apply rounded-[22px] border border-[#dfe8e0] bg-white/85 p-6 shadow-[0_18px_40px_rgba(0,72,63,0.07)] backdrop-blur-xl;
 }
 
 .field {
-  @apply min-h-11 w-full rounded-2xl border border-slate-200 bg-white/80 px-4 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100;
+  @apply min-h-11 w-full rounded-2xl border border-[#dfe8e0] bg-[#f9faf8] px-4 py-2.5 text-sm text-[#173d36] outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(193, 154, 75, 0.12), transparent 28rem),
+    radial-gradient(circle at 92% 8%, rgba(0, 72, 63, 0.10), transparent 24rem),
+    linear-gradient(180deg, #fbfaf6 0%, #ffffff 100%);
 }
 
 .page-enter {

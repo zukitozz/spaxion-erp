@@ -16,26 +16,33 @@ import {
   PanelLeftOpen,
   PhoneCall,
   Receipt,
+  Settings,
   ShoppingBag,
   Sparkles,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
+import type { UserRole } from '@/types/user'
 
-const navigation = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall },
-  { href: '/citas', label: 'Citas', icon: CalendarCheck },
-  { href: '/cabinas', label: 'Cabinas', icon: DoorClosed },
-  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera },
-  { href: '/inventario', label: 'Inventario', icon: Boxes },
-  { href: '/productos', label: 'Productos', icon: ShoppingBag },
-  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles },
-  { href: '/facturacion', label: 'Facturación', icon: Receipt },
-  { href: '/reportes', label: 'Reportes', icon: BarChart3 },
-  { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History },
+const STAFF: UserRole[] = ['ADMIN', 'SUPERVISOR']
+
+const navigation: { href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: STAFF },
+  { href: '/clientes', label: 'Clientes', icon: Users, roles: STAFF },
+  { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall, roles: STAFF },
+  { href: '/citas', label: 'Citas', icon: CalendarCheck, roles: STAFF },
+  { href: '/cabinas', label: 'Cabinas', icon: DoorClosed, roles: ['SUPERVISOR'] },
+  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ADMIN', 'SUPERVISOR', 'ESTETICISTA'] },
+  { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
+  { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
+  { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/usuarios', label: 'Usuarios', icon: UserCog, roles: ['SUPERVISOR'] },
+  { href: '/ajustes', label: 'Ajustes', icon: Settings, roles: ['SUPERVISOR'] },
 ]
 
 function getActiveHref(pathname: string) {
@@ -57,6 +64,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const role = session?.user?.role
+  const items = navigation.filter((item) => !role || item.roles.includes(role))
   const activeHref = getActiveHref(pathname)
   const initials = (session?.user?.name || '?')
     .split(' ')
@@ -68,13 +77,13 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden" onClick={onCloseMobile} />
+        <div className="fixed inset-0 z-40 bg-slate-900/40 md:hidden" onClick={onCloseMobile} />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col bg-[#00483f] text-[#f4f0e8] transition-all duration-200 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col bg-[linear-gradient(180deg,#005a4f_0%,#00483f_50%,#043a31_100%)] text-[#f4f0e8] transition-all duration-200 ${
           collapsed ? 'w-20' : 'w-64'
-        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
         <div className="flex items-center gap-2 border-b border-[#c19a4b]/30 p-4">
           {!collapsed && <BrandLogo compact onDark />}
@@ -82,7 +91,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             type="button"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
             onClick={onToggleCollapsed}
-            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] lg:flex"
+            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] md:flex"
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
@@ -90,14 +99,14 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             type="button"
             aria-label="Cerrar menú"
             onClick={onCloseMobile}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] lg:hidden"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full text-[#f4f0e8] transition hover:bg-[#17665a] md:hidden"
           >
             <X size={18} />
           </button>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {navigation.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon
             const isActive = item.href === activeHref
             return (

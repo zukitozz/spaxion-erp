@@ -8,9 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "prisma": "prisma",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1120.0",
+    "@aws-sdk/s3-request-presigner": "^3.1120.0",
     "@prisma/client": "^5.15.0",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",

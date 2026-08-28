@@ -13,7 +13,7 @@ const include = {
 }
 
 export async function GET() {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'OPERADOR', 'ESTETICISTA'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR', 'ESTETICISTA'])
   if (guard) return guard
 
   const session = await auth()
