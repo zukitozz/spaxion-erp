@@ -3,6 +3,11 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
+import { Spinner } from '@/components/Spinner'
+import { Pagination } from '@/components/Pagination'
+import { useToast } from '@/components/Toast'
+
+const FACTURAS_PAGE_SIZE = 10
 
 interface Cliente {
   id: string
@@ -15,14 +20,6 @@ interface Producto {
   nombre: string
   precioVenta: number
   stock: number
-}
-
-interface Descuento {
-  id: string
-  codigo: string
-  tipo: 'PORCENTAJE' | 'FIJO'
-  valor: number
-  activo: boolean
 }
 
 interface FacturaItemForm {
@@ -54,6 +51,7 @@ interface Factura {
   enviado: boolean
   errors: string | null
   url: string | null
+  fechaHora: string | null
 }
 
 interface PendienteProducto {
@@ -80,25 +78,29 @@ const totalPendiente = (pendiente: Pendiente) =>
 function FacturacionContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const toast = useToast()
   const [atencionIdOrigen] = useState(() => searchParams.get('atencionId') || '')
+  const [mostrarFormulario, setMostrarFormulario] = useState(
+    () => Boolean(searchParams.get('atencionId') || searchParams.get('clienteId')),
+  )
 
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
-  const [descuentos, setDescuentos] = useState<Descuento[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [guardandoPendiente, setGuardandoPendiente] = useState(false)
-  const [enviandoId, setEnviandoId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     clienteId: searchParams.get('clienteId') || '',
     tipo: 'BOLETA',
     metodoPago: 'EFECTIVO',
-    descuentoId: '',
     items: [createInitialItem()],
   })
+  const [descuentoInput, setDescuentoInput] = useState('')
+  const [busquedaFactura, setBusquedaFactura] = useState('')
+  const [paginaFactura, setPaginaFactura] = useState(1)
 
   const [clienteQuery, setClienteQuery] = useState('')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
@@ -115,15 +117,12 @@ function FacturacionContent() {
   )
   const subtotal = subtotalPendientes + subtotalManual
 
-  const descuento = useMemo(() => {
-    const selected = descuentos.find((item) => item.id === form.descuentoId && item.activo)
-    if (!selected) return 0
-    return selected.tipo === 'PORCENTAJE'
-      ? (subtotal * selected.valor) / 100
-      : selected.valor
-  }, [descuentos, form.descuentoId, subtotal])
+  const montoDescuento = useMemo(() => {
+    const valor = Math.max(0, Number(descuentoInput) || 0)
+    return Math.min(Math.round(valor * 100) / 100, subtotal)
+  }, [descuentoInput, subtotal])
 
-  const total = Math.max(0, subtotal - descuento)
+  const total = Math.max(0, subtotal - montoDescuento)
 
   const clientesFiltrados = useMemo(() => {
     const query = clienteQuery.trim().toLowerCase()
@@ -131,96 +130,97 @@ function FacturacionContent() {
     return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
   }, [clientes, clienteQuery])
 
-  const enviarASunat = async (facturaId: string) => {
-    setEnviandoId(facturaId)
-    const response = await fetch('/api/facturacion/enviar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ facturaId }),
-    })
-    const data = await response.json()
-    setEnviandoId(null)
+  const facturasFiltradas = useMemo(() => {
+    const query = busquedaFactura.trim().toLowerCase()
+    if (!query) return facturas
+    return facturas.filter((factura) =>
+      (factura.numeracionComprobante || '').toLowerCase().includes(query) ||
+      factura.cliente.nombre.toLowerCase().includes(query),
+    )
+  }, [facturas, busquedaFactura])
 
-    const actualizada: Factura | undefined = data.factura || (response.ok ? data : undefined)
-    if (actualizada) {
-      setFacturas((prev) => prev.map((item) => (item.id === facturaId ? actualizada : item)))
-    }
-    if (!response.ok) {
-      alert(data.error || 'No se pudo enviar el comprobante a SUNAT')
-    }
-  }
+  const totalPaginasFactura = Math.max(1, Math.ceil(facturasFiltradas.length / FACTURAS_PAGE_SIZE))
+  const paginaFacturaActual = Math.min(paginaFactura, totalPaginasFactura)
+  const facturasPagina = facturasFiltradas.slice(
+    (paginaFacturaActual - 1) * FACTURAS_PAGE_SIZE,
+    paginaFacturaActual * FACTURAS_PAGE_SIZE,
+  )
+
+  useEffect(() => { setPaginaFactura(1) }, [busquedaFactura])
 
   const recentInvoices = loading ? (
-    <p className="text-sm text-slate-500">Cargando facturas...</p>
-  ) : facturas.length === 0 ? (
-    <p className="text-sm text-slate-500">No hay facturas registradas todavía.</p>
+    <p className="flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando facturas...</p>
+  ) : facturasPagina.length === 0 ? (
+    <p className="text-sm text-slate-500">{facturas.length === 0 ? 'No hay facturas registradas todavía.' : 'No se encontraron facturas.'}</p>
   ) : (
-    facturas.map((factura) => (
-      <div key={factura.id} className="rounded-2xl border border-[#eef1ec] bg-[#fdfdfb] p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[15px] font-bold text-[#173d36]">
-              <ClienteHistorialLink clienteId={factura.cliente.id} nombre={factura.cliente.nombre} className="hover:text-emerald-700" />
-            </p>
-            <p className="text-sm text-slate-500">{factura.tipo} · {factura.metodoPago}</p>
-          </div>
-          <span className="page-heading text-lg">S/ {factura.total.toFixed(2)}</span>
-        </div>
-        <p className="mt-3 text-sm text-slate-600">{factura.estado} · {factura.numeracionComprobante || 'Sin comprobante'}</p>
-        <div className="mt-3 grid gap-2 text-sm text-slate-500">
-          {(Array.isArray(factura.items) ? factura.items : []).map((item) => (
-            <div key={item.id} className="flex items-center justify-between">
-              <span>{item.nombre}</span>
-              <span>S/ {item.total.toFixed(2)}</span>
-            </div>
-          ))}
-        </div>
-        {factura.tipo !== 'NOTA_VENTA' && (
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#eef1ec] pt-3">
-            {factura.enviado ? (
-              <div className="flex items-center gap-3 text-sm font-semibold text-[#1d6f50]">
-                <span>✓ Enviado a SUNAT</span>
-                {factura.url && (
-                  <a href={factura.url} target="_blank" rel="noreferrer" className="underline">Ver PDF</a>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead>
+          <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <th className="pb-3 pr-4">Fecha y hora</th>
+            <th className="pb-3 pr-4">Cliente</th>
+            <th className="pb-3 pr-4">Tipo</th>
+            <th className="pb-3 pr-4">Comprobante</th>
+            <th className="pb-3 pr-4 text-right">Total</th>
+            <th className="pb-3 pr-4">Estado</th>
+            <th className="pb-3">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          {facturasPagina.map((factura) => (
+            <tr key={factura.id} className="border-t border-[#eef1ec]">
+              <td className="py-3 pr-4 whitespace-nowrap text-slate-600">
+                {factura.fechaHora ? new Date(factura.fechaHora).toLocaleString('es-PE') : '—'}
+              </td>
+              <td className="py-3 pr-4 font-semibold text-[#173d36]">
+                <ClienteHistorialLink clienteId={factura.cliente.id} nombre={factura.cliente.nombre} className="hover:text-emerald-700" />
+              </td>
+              <td className="py-3 pr-4 text-slate-600">{factura.tipo}</td>
+              <td className="py-3 pr-4 text-slate-600">{factura.numeracionComprobante || 'Sin comprobante'}</td>
+              <td className="py-3 pr-4 text-right font-semibold text-[#173d36]">S/ {factura.total.toFixed(2)}</td>
+              <td className="py-3 pr-4">
+                {factura.tipo === 'NOTA_VENTA' ? (
+                  <span className="text-slate-500">No aplica</span>
+                ) : factura.enviado ? (
+                  <span className="font-semibold text-[#1d6f50]">✓ Enviado a SUNAT</span>
+                ) : (
+                  <span className="font-semibold text-rose-700">Error al enviar</span>
                 )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={enviandoId === factura.id}
-                onClick={() => void enviarASunat(factura.id)}
-                className="rounded-full bg-[#00483f] px-4 py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-60"
-              >
-                {enviandoId === factura.id ? 'Enviando...' : 'Enviar a SUNAT'}
-              </button>
-            )}
-          </div>
-        )}
-        {factura.errors && !factura.enviado && (
-          <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{factura.errors}</p>
-        )}
-      </div>
-    ))
+                {factura.errors && !factura.enviado && (
+                  <p className="mt-1 max-w-xs text-xs text-rose-700">{factura.errors}</p>
+                )}
+              </td>
+              <td className="py-3">
+                {factura.enviado && factura.url ? (
+                  <a href={factura.url} target="_blank" rel="noreferrer" className="rounded-full border border-[#00483f] px-4 py-1.5 text-xs font-bold text-[#00483f] transition hover:bg-[#00483f] hover:text-white">
+                    Ver PDF
+                  </a>
+                ) : (
+                  <span className="text-slate-400">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 
   const loadData = async () => {
-    const [clientesRes, productosRes, descuentosRes, facturasRes] = await Promise.all([
+    const [clientesRes, productosRes, facturasRes] = await Promise.all([
       fetch('/api/clientes'),
       fetch('/api/productos'),
-      fetch('/api/descuentos'),
       fetch('/api/facturacion'),
     ])
 
-    const [clientesData, productosData, descuentosData, facturasData] = await Promise.all([
+    const [clientesData, productosData, facturasData] = await Promise.all([
       clientesRes.json(),
       productosRes.json(),
-      descuentosRes.json(),
       facturasRes.json(),
     ])
 
     setClientes(Array.isArray(clientesData) ? clientesData : [])
     setProductos(Array.isArray(productosData) ? productosData : [])
-    setDescuentos(Array.isArray(descuentosData) ? descuentosData.filter((item: Descuento) => item.activo) : [])
     setFacturas(Array.isArray(facturasData) ? facturasData : [])
     setLoading(false)
   }
@@ -275,7 +275,7 @@ function FacturacionContent() {
     setCreandoCliente(false)
 
     if (!response.ok) {
-      alert(data.error || 'No se pudo registrar el cliente')
+      toast.error(data.error || 'No se pudo registrar el cliente')
       return
     }
 
@@ -288,7 +288,7 @@ function FacturacionContent() {
     if (clienteVarios) {
       seleccionarCliente(clienteVarios)
     } else {
-      alert('No se encontró el cliente "Clientes Varios". Contacta a soporte.')
+      toast.error('No se encontró el cliente "Clientes Varios". Contacta a soporte.')
     }
   }
 
@@ -317,9 +317,9 @@ function FacturacionContent() {
       clienteId: '',
       tipo: 'BOLETA',
       metodoPago: 'EFECTIVO',
-      descuentoId: '',
       items: [createInitialItem()],
     })
+    setDescuentoInput('')
     setClienteQuery('')
     setNuevoClienteAbierto(false)
     setNuevoCliente({ nombre: '', tipoDocumento: 'DNI', numeroDocumento: '' })
@@ -330,7 +330,7 @@ function FacturacionContent() {
     if (pendientes.length === 0 && itemsValidos.length === 0) return
     setSubmitting(true)
 
-    await fetch('/api/facturacion', {
+    const response = await fetch('/api/facturacion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -338,14 +338,27 @@ function FacturacionContent() {
         atencionIds: pendientes.map((pendiente) => pendiente.id),
         tipo: form.tipo,
         metodoPago: form.metodoPago,
-        descuentoId: form.descuentoId || null,
+        montoDescuento,
         items: itemsValidos,
       }),
     })
+    const data = await response.json().catch(() => null)
+    setSubmitting(false)
+
+    if (!response.ok) {
+      toast.error(data?.error || 'No se pudo registrar la factura')
+      return
+    }
 
     resetForm()
+    setMostrarFormulario(false)
     await loadData()
-    setSubmitting(false)
+
+    if (data?.tipo !== 'NOTA_VENTA' && !data?.enviado) {
+      toast.error(data?.errors || 'La factura se registró, pero falló el envío a SUNAT')
+    } else {
+      toast.success('Factura registrada correctamente')
+    }
   }
 
   const handleGuardarPendiente = async () => {
@@ -361,7 +374,7 @@ function FacturacionContent() {
       })
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'No se pudo guardar un producto pendiente')
+        toast.error(data.error || 'No se pudo guardar un producto pendiente')
         setGuardandoPendiente(false)
         return
       }
@@ -380,9 +393,22 @@ function FacturacionContent() {
           <p className="mt-2 text-slate-600">Registra ventas, aplica descuentos y genera comprobantes con métodos de pago.</p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <div className="card-surface">
-            <h2 className="text-xl font-bold text-[#173d36]">Nueva factura</h2>
+        <div className="grid gap-6">
+          {mostrarFormulario && (
+            <div
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
+              onClick={() => setMostrarFormulario(false)}
+            >
+              <div className="card-surface w-full max-w-3xl" onClick={(event) => event.stopPropagation()}>
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-xl font-bold text-[#173d36]">Nueva factura</h2>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarFormulario(false)}
+                    className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+                    aria-label="Cerrar"
+                  >✕</button>
+                </div>
             <div className="mt-6 space-y-4">
               <div className="relative">
                 <label htmlFor="factura-cliente" className="block text-sm font-medium text-slate-700">Cliente</label>
@@ -467,8 +493,9 @@ function FacturacionContent() {
                       type="button"
                       disabled={creandoCliente || !nuevoCliente.nombre.trim() || !nuevoCliente.numeroDocumento.trim()}
                       onClick={() => void handleCrearCliente()}
-                      className="rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
+                      {creandoCliente && <Spinner />}
                       {creandoCliente ? 'Registrando...' : 'Registrar y seleccionar'}
                     </button>
                     <button
@@ -606,33 +633,30 @@ function FacturacionContent() {
 
                 <div className="mt-4">
                   <div className="flex items-center justify-between gap-4">
-                    <label htmlFor="factura-descuento" className="text-sm font-medium text-slate-700">Descuento</label>
-                    {form.descuentoId && (
+                    <label htmlFor="factura-descuento" className="text-sm font-medium text-slate-700">Monto a descontar</label>
+                    {descuentoInput && (
                       <button
                         type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, descuentoId: '' }))}
+                        onClick={() => setDescuentoInput('')}
                         className="text-xs font-semibold text-emerald-700"
                       >Quitar</button>
                     )}
                   </div>
-                  <select
+                  <input
                     id="factura-descuento"
-                    value={form.descuentoId}
-                    onChange={(event) => setForm((prev) => ({ ...prev, descuentoId: event.target.value }))}
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={descuentoInput}
+                    onChange={(event) => setDescuentoInput(event.target.value)}
+                    placeholder="S/ 0.00"
                     className="field mt-2 bg-white"
-                  >
-                    <option value="">Sin descuento</option>
-                    {descuentos.map((descuento) => (
-                      <option key={descuento.id} value={descuento.id}>
-                        {descuento.codigo} · {descuento.tipo === 'PORCENTAJE' ? `${descuento.valor}%` : `S/ ${descuento.valor.toFixed(2)}`}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
                   <span>Total descuento</span>
-                  <span>- S/ {descuento.toFixed(2)}</span>
+                  <span>- S/ {montoDescuento.toFixed(2)}</span>
                 </div>
                 <div className="mt-4 flex items-center justify-between border-t border-dashed border-[#dfe8e0] pt-4">
                   <span className="text-[15px] font-extrabold text-[#173d36]">Total</span>
@@ -645,8 +669,9 @@ function FacturacionContent() {
                   type="button"
                   disabled={submitting || !form.clienteId || subtotal === 0}
                   onClick={() => void handleSubmit()}
-                  className="btn-brand flex-1 disabled:opacity-60"
+                  className="btn-brand flex flex-1 items-center justify-center gap-2 disabled:opacity-60"
                 >
+                  {submitting && <Spinner />}
                   {submitting ? 'Registrando...' : 'Cobrar y emitir comprobante'}
                 </button>
                 {(pendientes.length > 0 || atencionIdOrigen) && (
@@ -654,20 +679,42 @@ function FacturacionContent() {
                     type="button"
                     disabled={guardandoPendiente}
                     onClick={() => void handleGuardarPendiente()}
-                    className="flex-1 rounded-xl border border-amber-300 px-5 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-50 disabled:opacity-60"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-300 px-5 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-50 disabled:opacity-60"
                   >
+                    {guardandoPendiente && <Spinner />}
                     {guardandoPendiente ? 'Guardando...' : 'Guardar como pendiente (otro tratamiento)'}
                   </button>
                 )}
               </div>
             </div>
-          </div>
+              </div>
+            </div>
+          )}
 
           <div className="card-surface">
-            <h2 className="text-xl font-bold text-[#173d36]">Facturas recientes</h2>
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-[#173d36]">Facturas recientes</h2>
+              <button
+                type="button"
+                onClick={() => setMostrarFormulario(true)}
+                className="rounded-full bg-[#00483f] px-5 py-2 text-sm font-bold text-white transition hover:brightness-110"
+              >
+                + Nueva factura
+              </button>
+            </div>
+
+            <input
+              value={busquedaFactura}
+              onChange={(event) => setBusquedaFactura(event.target.value)}
+              placeholder="Buscar por número de comprobante o cliente..."
+              className="field mt-4"
+            />
+
             <div className="mt-6 space-y-4">
               {recentInvoices}
             </div>
+
+            <Pagination page={paginaFacturaActual} totalPages={totalPaginasFactura} onChange={setPaginaFactura} />
           </div>
         </div>
       </div>

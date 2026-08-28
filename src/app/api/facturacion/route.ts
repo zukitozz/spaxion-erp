@@ -4,6 +4,7 @@ import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
 import { obtenerCorrelativo, resolverPrefijo } from '@/lib/correlativos'
 import { numeroALetras } from '@/lib/numeroALetras'
+import { enviarFacturaASunat } from '@/lib/enviarFactura'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export async function GET() {
   const guard = await requireApiAuth()
   if (guard) return guard
   const facturas = await prisma.factura.findMany({
+    where: { activo: true },
     include: { cliente: true, items: true, descuento: true },
     orderBy: { creadoAt: 'desc' },
   })
@@ -93,34 +95,28 @@ export async function POST(req: Request) {
   }
 
   const subtotal = items.reduce((sum: number, item: { total: number }) => sum + item.total, 0)
-  let descuentoAplicado = 0
-  let descuentoId: string | null = null
+  const descuentoAplicado = Math.min(round2(Math.max(0, Number(body.montoDescuento) || 0)), subtotal)
+  const total = round2(subtotal - descuentoAplicado)
 
-  if (body.descuentoId) {
-    const descuento = await prisma.descuento.findUnique({
-      where: { id: body.descuentoId },
-    })
-
-    if (descuento?.activo) {
-      const now = new Date()
-      const isValidFrom = !descuento.fechaInicio || now >= descuento.fechaInicio
-      const isValidUntil = !descuento.fechaFin || now <= descuento.fechaFin
-
-      if (isValidFrom && isValidUntil) {
-        descuentoAplicado = descuento.tipo === 'PORCENTAJE'
-          ? round2(subtotal * (descuento.valor / 100))
-          : descuento.valor
-
-        if (descuentoAplicado > subtotal) {
-          descuentoAplicado = subtotal
-        }
-
-        descuentoId = descuento.id
-      }
-    }
-  }
-
-  const total = round2(Math.max(0, subtotal - descuentoAplicado))
+  // SUNAT valida que la suma de los items coincida con el total del comprobante, así que en
+  // vez de declarar un descuento aparte, se recalcula hacia atrás el precio de cada item para
+  // que ya reflejen el precio final acordado con el cliente.
+  const itemsFacturados = descuentoAplicado > 0 && subtotal > 0
+    ? (() => {
+        const factor = total / subtotal
+        let acumulado = 0
+        return items.map((item: { total: number; cantidad: number }, index: number) => {
+          const esUltimo = index === items.length - 1
+          const nuevoTotal = esUltimo ? round2(total - acumulado) : round2(item.total * factor)
+          acumulado = round2(acumulado + nuevoTotal)
+          return {
+            ...item,
+            total: nuevoTotal,
+            precioUnit: item.cantidad > 0 ? round2(nuevoTotal / item.cantidad) : nuevoTotal,
+          }
+        })
+      })()
+    : items
 
   const session = await auth()
   if (!session?.user?.id) {
@@ -171,9 +167,8 @@ export async function POST(req: Request) {
         metodoPago: body.metodoPago || 'EFECTIVO',
         estado: body.estado || 'PAGADO',
         descuentoAplicado,
-        descuento: descuentoId ? { connect: { id: descuentoId } } : undefined,
         items: {
-          create: items.map((item: any) => {
+          create: itemsFacturados.map((item: any) => {
             const { productoId, ...rest } = item
             return { ...rest, producto: productoId ? { connect: { id: productoId } } : undefined }
           }),
@@ -208,5 +203,7 @@ export async function POST(req: Request) {
     return creada
   })
 
-  return NextResponse.json(factura, { status: 201 })
+  const facturaFinal = factura.tipo === 'NOTA_VENTA' ? factura : (await enviarFacturaASunat(factura.id)) ?? factura
+
+  return NextResponse.json(facturaFinal, { status: 201 })
 }
