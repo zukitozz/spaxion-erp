@@ -34,7 +34,7 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall, roles: STAFF },
   { href: '/citas', label: 'Citas', icon: CalendarCheck, roles: STAFF },
   { href: '/cabinas', label: 'Cabinas', icon: DoorClosed, roles: ['SUPERVISOR'] },
-  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ADMIN', 'SUPERVISOR', 'ESTETICISTA'] },
+  { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ESTETICISTA'] },
   { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['ADMIN', 'SUPERVISOR'] },

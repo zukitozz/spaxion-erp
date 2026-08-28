@@ -7,6 +7,13 @@
   font-family: var(--font-body), "Trebuchet MS", sans-serif;
   background-color: #fbfaf6;
   color: #173d36;
+  font-size: 15px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    font-size: 15.5px;
+  }
 }
 
 html {
