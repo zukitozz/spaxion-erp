@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal } from '@/components/Modal'
 import { CitaFormModal, type Cita } from '@/components/CitaFormModal'
+import { Spinner } from '@/components/Spinner'
 
 interface Cliente {
   id: string
@@ -223,6 +224,8 @@ function DiaView({
   )
 }
 
+const SYNC_INTERVAL_MS = 45_000
+
 export default function CitasPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
@@ -231,6 +234,16 @@ export default function CitasPage() {
   const [fechaAncla, setFechaAncla] = useState(() => new Date())
   const [modal, setModal] = useState<ModalState>(null)
   const [diaDetalle, setDiaDetalle] = useState<string | null>(null)
+  const [sincronizando, setSincronizando] = useState(false)
+
+  const sincronizarCalendar = () => {
+    setSincronizando(true)
+    return fetch('/api/integraciones/google-calendar/sync', { method: 'POST' })
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data.citas)) setCitas(data.citas) })
+      .catch(() => {})
+      .finally(() => setSincronizando(false))
+  }
 
   useEffect(() => {
     Promise.all([
@@ -244,10 +257,12 @@ export default function CitasPage() {
     })
 
     // Sync con Google Calendar en segundo plano: no bloquea el render inicial.
-    fetch('/api/integraciones/google-calendar/sync', { method: 'POST' })
-      .then((res) => res.json())
-      .then((data) => { if (Array.isArray(data.citas)) setCitas(data.citas) })
-      .catch(() => {})
+    // Se repite mientras la pantalla esté abierta para reflejar cambios hechos
+    // directamente en Google Calendar (no hay webhook, es polling).
+    void sincronizarCalendar()
+    const id = setInterval(() => void sincronizarCalendar(), SYNC_INTERVAL_MS)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const citasPorDia = useMemo(() => {
@@ -359,6 +374,12 @@ export default function CitasPage() {
           </div>
 
           <p className="page-heading flex-1 text-base capitalize text-[#173d36]">{etiquetaRango}</p>
+
+          {sincronizando && (
+            <span className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <Spinner /> Sincronizando Google Calendar...
+            </span>
+          )}
 
           <button
             type="button"
