@@ -96,7 +96,13 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
   const guardar = async () => {
     setSaving(true)
     setError('')
-    const fechaHora = `${fecha}T${hora}`
+    // Se arma un Date con las partes locales (año/mes/día/hora) y se serializa con
+    // toISOString(): así el servidor recibe un instante UTC sin ambigüedad, sin
+    // depender de la zona horaria en la que corra el proceso de Node (Vercel usa
+    // UTC por defecto, distinto a la hora de Perú).
+    const [anio, mes, dia] = fecha.split('-').map(Number)
+    const [horaNum, minuto] = hora.split(':').map(Number)
+    const fechaHora = new Date(anio, mes - 1, dia, horaNum, minuto).toISOString()
     const response = await fetch('/api/citas', {
       method: modo === 'crear' ? 'POST' : 'PUT',
       headers: { 'Content-Type': 'application/json' },

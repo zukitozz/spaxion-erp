@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 
 interface Usuario {
   id: string
@@ -47,11 +49,11 @@ const metodoLabels: Record<string, string> = {
 }
 
 export default function ReportesPage() {
+  const toast = useToast()
   const [cierres, setCierres] = useState<CierreTurno[]>([])
   const [pendientes, setPendientes] = useState<Pendientes | null>(null)
   const [loading, setLoading] = useState(true)
   const [cerrando, setCerrando] = useState(false)
-  const [error, setError] = useState('')
 
   const load = async () => {
     const [cierresRes, pendientesRes] = await Promise.all([
@@ -75,19 +77,19 @@ export default function ReportesPage() {
 
   const cerrarTurno = async () => {
     setCerrando(true)
-    setError('')
     const response = await fetch('/api/cierres', { method: 'POST' })
     setCerrando(false)
     if (!response.ok) {
       const data = await response.json()
-      setError(data.error || 'No se pudo cerrar el turno')
+      toast.error(data.error || 'No se pudo cerrar el turno')
       return
     }
     await load()
+    toast.success('Turno cerrado correctamente')
   }
 
   const reportRows = loading ? (
-    <p className="text-sm text-slate-500">Cargando datos...</p>
+    <p className="flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando datos...</p>
   ) : cierres.length === 0 ? (
     <p className="text-sm text-slate-500">No se han registrado cierres aún.</p>
   ) : (
@@ -137,12 +139,12 @@ export default function ReportesPage() {
                 type="button"
                 disabled={cerrando || !pendientes || pendientes.facturas.length === 0}
                 onClick={() => void cerrarTurno()}
-                className="btn-brand disabled:opacity-60"
+                className="btn-brand flex items-center gap-2 disabled:opacity-60"
               >
+                {cerrando && <Spinner />}
                 {cerrando ? 'Cerrando...' : 'Cerrar turno'}
               </button>
             </div>
-            {error && <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-900">{error}</p>}
 
             {!pendientes || pendientes.facturas.length === 0 ? (
               <p className="mt-5 text-sm text-slate-500">No hay cobros pendientes de cerrar en este momento.</p>
