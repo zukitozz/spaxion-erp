@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CabinaCard, type AtencionActual, type CabinaEstado } from '@/components/CabinaCard'
 import { Modal } from '@/components/Modal'
 import { CabinaAtencionPanel } from '@/components/CabinaAtencionPanel'
+import { useToast } from '@/components/Toast'
 
 interface Cabina {
   id: string
@@ -15,6 +16,7 @@ interface Cabina {
 const estados: CabinaEstado[] = ['DISPONIBLE', 'ATENCION', 'LIMPIEZA', 'MANTENIMIENTO']
 
 export default function CabinasPage() {
+  const toast = useToast()
   const [cabinas, setCabinas] = useState<Cabina[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState<{ nombre: string; estado: CabinaEstado }>({ nombre: '', estado: 'DISPONIBLE' })
@@ -39,9 +41,14 @@ export default function CabinasPage() {
       body: JSON.stringify(form),
     })
     const created = await response.json()
+    setSubmitting(false)
+    if (!response.ok) {
+      toast.error(created.error || 'No se pudo crear la cabina')
+      return
+    }
     setCabinas((prev) => [{ ...created, atencionActual: null }, ...prev])
     setForm({ nombre: '', estado: 'DISPONIBLE' })
-    setSubmitting(false)
+    toast.success('Cabina creada')
   }
 
   const cabinaSeleccionada = cabinas.find((cabina) => cabina.id === selectedCabinaId) ?? null

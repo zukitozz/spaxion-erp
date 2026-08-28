@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 
 interface Usuario {
   id: string
@@ -21,16 +23,16 @@ function submitLabel(loading: boolean, editingId: string | null) {
 }
 
 export default function UsuariosPage() {
+  const toast = useToast()
   const [users, setUsers] = useState<Usuario[]>([])
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
 
   const load = async () => {
     const response = await fetch('/api/usuarios')
     if (!response.ok) {
-      setMessage('No tienes permisos para administrar usuarios.')
+      toast.error('No tienes permisos para administrar usuarios.')
       return
     }
     const data = await response.json()
@@ -41,7 +43,6 @@ export default function UsuariosPage() {
 
   const saveUser = async () => {
     setLoading(true)
-    setMessage('')
 
     const response = await fetch('/api/usuarios', {
       method: editingId ? 'PUT' : 'POST',
@@ -50,22 +51,20 @@ export default function UsuariosPage() {
     })
 
     const result = await response.json()
+    setLoading(false)
     if (!response.ok) {
-      setMessage(result.error || 'No se pudo guardar el usuario')
-      setLoading(false)
+      toast.error(result.error || 'No se pudo guardar el usuario')
       return
     }
 
     setUsers((prev) => editingId ? prev.map((item) => item.id === editingId ? result : item) : [result, ...prev])
     setForm(emptyForm)
     setEditingId(null)
-    setMessage(editingId ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.')
-    setLoading(false)
+    toast.success(editingId ? 'Usuario actualizado' : 'Usuario creado')
   }
 
   const editUser = (user: Usuario) => {
     setEditingId(user.id)
-    setMessage('')
     setForm({
       name: user.name,
       email: user.email,
@@ -79,13 +78,18 @@ export default function UsuariosPage() {
   const cancelEdit = () => {
     setEditingId(null)
     setForm(emptyForm)
-    setMessage('')
   }
 
   const removeUser = async (id: string) => {
-    await fetch(`/api/usuarios?id=${id}`, { method: 'DELETE' })
+    const response = await fetch(`/api/usuarios?id=${id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      toast.error(data?.error || 'No se pudo eliminar el usuario')
+      return
+    }
     if (editingId === id) cancelEdit()
     await load()
+    toast.success('Usuario eliminado')
   }
 
   return (
@@ -121,10 +125,10 @@ export default function UsuariosPage() {
               <option value="ADMIN">Administrador</option>
               {form.role === 'SUPERVISOR' && <option value="SUPERVISOR" disabled>Supervisor (no se pueden crear más)</option>}
             </select>
-            <button type="button" disabled={loading || !form.name || !form.email} onClick={() => void saveUser()} className="btn-brand w-full disabled:opacity-60">
+            <button type="button" disabled={loading || !form.name || !form.email} onClick={() => void saveUser()} className="btn-brand flex w-full items-center justify-center gap-2 disabled:opacity-60">
+              {loading && <Spinner />}
               {submitLabel(loading, editingId)}
             </button>
-            {message && <p className="text-sm text-slate-600">{message}</p>}
           </div>
           <div className="card-surface space-y-4">
             <h2 className="text-xl font-semibold text-emerald-900">Usuarios registrados</h2>

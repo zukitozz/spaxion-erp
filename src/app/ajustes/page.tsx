@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useToast } from '@/components/Toast'
 
 interface Settings {
   nombreEmpresa: string
@@ -23,14 +24,15 @@ const initialSettings: Settings = {
 }
 
 export default function AjustesPage() {
+  const toast = useToast()
   const [settings, setSettings] = useState(initialSettings)
-  const [message, setMessage] = useState('')
 
   useEffect(() => {
     fetch('/api/ajustes').then((response) => response.json()).then((data) => setSettings(data))
     const calendarResult = new URLSearchParams(window.location.search).get('calendar')
-    if (calendarResult === 'ok') setMessage('Cuenta de Google conectada correctamente.')
-    if (calendarResult === 'error') setMessage('No se pudo conectar la cuenta de Google. Verifica las credenciales OAuth.')
+    if (calendarResult === 'ok') toast.success('Cuenta de Google conectada correctamente.')
+    if (calendarResult === 'error') toast.error('No se pudo conectar la cuenta de Google. Verifica las credenciales OAuth.')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const save = async () => {
@@ -39,14 +41,20 @@ export default function AjustesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     })
-    setMessage(response.ok ? 'Configuración guardada.' : 'No tienes permisos para guardar ajustes.')
+    if (response.ok) {
+      toast.success('Configuración guardada')
+    } else {
+      toast.error('No tienes permisos para guardar ajustes.')
+    }
   }
 
   const disconnectGoogle = async () => {
     const response = await fetch('/api/integraciones/google-calendar/disconnect', { method: 'POST' })
     if (response.ok) {
       setSettings((prev) => ({ ...prev, googleCuentaEmail: null }))
-      setMessage('Cuenta de Google desconectada.')
+      toast.success('Cuenta de Google desconectada.')
+    } else {
+      toast.error('No se pudo desconectar la cuenta de Google.')
     }
   }
 
@@ -97,7 +105,6 @@ export default function AjustesPage() {
           </div>
         </div>
         <button type="button" onClick={() => void save()} className="btn-brand">Guardar ajustes</button>
-        {message && <p className="text-sm text-slate-600">{message}</p>}
       </div>
     </div>
   )

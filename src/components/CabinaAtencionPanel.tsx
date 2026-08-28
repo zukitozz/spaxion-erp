@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { AtencionActual, CabinaEstado } from '@/components/CabinaCard'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { AtencionFotos } from '@/components/AtencionFotos'
+import { useToast } from '@/components/Toast'
 
 interface Cliente { id: string; nombre: string }
 interface Tratamiento { id: string; nombre: string; activo: boolean }
@@ -31,6 +32,7 @@ const ESTADOS_MANUALES: CabinaEstado[] = ['DISPONIBLE', 'LIMPIEZA', 'MANTENIMIEN
 
 export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtencionPanelProps) {
   const router = useRouter()
+  const toast = useToast()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [esteticistas, setEsteticistas] = useState<Esteticista[]>([])
@@ -94,6 +96,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
     setNuevoProductoId('')
     setNuevaCantidad(1)
     cargarProductosAtencion()
+    toast.success('Producto agregado')
   }
 
   useEffect(() => {
@@ -161,6 +164,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       setError(data.error || 'No se pudo iniciar la atención')
       return
     }
+    toast.success('Atención iniciada')
     onChanged()
   }
 
@@ -183,9 +187,11 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       return
     }
     if (accion === 'finalizar') {
+      toast.success('Atención finalizada')
       router.push(`/facturacion?clienteId=${cabina.atencionActual.cliente.id}&atencionId=${cabina.atencionActual.id}`)
       return
     }
+    toast.success('Atención cancelada')
     onChanged()
   }
 
@@ -203,6 +209,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       setError(data.error || 'No se pudo cambiar el estado')
       return
     }
+    toast.success('Estado de cabina actualizado')
     onChanged()
   }
 

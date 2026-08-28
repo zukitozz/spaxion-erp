@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Spinner } from '@/components/Spinner'
+import { useToast } from '@/components/Toast'
 
 type DescuentoTipo = 'PORCENTAJE' | 'FIJO'
 
@@ -26,6 +28,7 @@ const initialForm = {
 }
 
 export default function DescuentosPage() {
+  const toast = useToast()
   const [descuentos, setDescuentos] = useState<Descuento[]>([])
   const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(false)
@@ -42,30 +45,48 @@ export default function DescuentosPage() {
 
   const handleCreate = async () => {
     setLoading(true)
-    await fetch('/api/descuentos', {
+    const response = await fetch('/api/descuentos', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
+    setLoading(false)
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      toast.error(data?.error || 'No se pudo crear el descuento')
+      return
+    }
     setForm(initialForm)
     await fetchDescuentos()
-    setLoading(false)
+    toast.success('Descuento creado')
   }
 
   const handleToggleActive = async (descuento: Descuento) => {
-    await fetch('/api/descuentos', {
+    const response = await fetch('/api/descuentos', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: descuento.id, activo: !descuento.activo }),
     })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      toast.error(data?.error || 'No se pudo actualizar el descuento')
+      return
+    }
     await fetchDescuentos()
+    toast.success(descuento.activo ? 'Descuento desactivado' : 'Descuento activado')
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/descuentos?id=${id}`, {
+    const response = await fetch(`/api/descuentos?id=${id}`, {
       method: 'DELETE',
     })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      toast.error(data?.error || 'No se pudo eliminar el descuento')
+      return
+    }
     await fetchDescuentos()
+    toast.success('Descuento eliminado')
   }
 
   const activeCount = useMemo(() => descuentos.filter((item) => item.activo).length, [descuentos])
@@ -150,9 +171,10 @@ export default function DescuentosPage() {
               <button
                 type="button"
                 disabled={loading || !form.codigo}
-                onClick={handleCreate}
-                className="btn-brand w-full disabled:opacity-60"
+                onClick={() => void handleCreate()}
+                className="btn-brand flex w-full items-center justify-center gap-2 disabled:opacity-60"
               >
+                {loading && <Spinner />}
                 {loading ? 'Guardando...' : 'Crear descuento'}
               </button>
             </div>
