@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
+import { Modal } from '@/components/Modal'
+import { CitaFormModal, type Cita } from '@/components/CitaFormModal'
 
 interface Cliente {
   id: string
@@ -12,15 +13,15 @@ interface Tratamiento {
   id: string
   nombre: string
   activo: boolean
+  duracionMin: number
 }
 
-interface Cita {
-  id: string
-  fecha: string
-  tratamiento: string
-  estado: string
-  cliente: Cliente
-}
+type Vista = 'semana' | 'mes'
+
+type ModalState =
+  | { modo: 'crear'; fechaInicial: string }
+  | { modo: 'editar'; cita: Cita }
+  | null
 
 const badgeStyles: Record<string, { bg: string; color: string }> = {
   PENDIENTE: { bg: '#fdf3e0', color: '#92620c' },
@@ -30,77 +31,132 @@ const badgeStyles: Record<string, { bg: string; color: string }> = {
   EXPIRADA: { bg: '#f1f5f9', color: '#64748b' },
 }
 
-const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
-function buildWeek() {
-  const today = new Date()
-  const start = new Date(today)
-  start.setDate(today.getDate() - today.getDay() + 1)
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(start)
-    date.setDate(start.getDate() + index)
-    return date
+function dateKey(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function startOfWeek(date: Date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function buildWeek(fechaAncla: Date) {
+  const start = startOfWeek(fechaAncla)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    return d
   })
+}
+
+function buildMonthGrid(fechaAncla: Date) {
+  const firstOfMonth = new Date(fechaAncla.getFullYear(), fechaAncla.getMonth(), 1)
+  const start = startOfWeek(firstOfMonth)
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    return d
+  })
+}
+
+function formatHora(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function CitasPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
-  const [form, setForm] = useState({ clienteId: '', fecha: '', tratamiento: '', estado: 'PENDIENTE' })
-  const [clienteQuery, setClienteQuery] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(() => new Date().toISOString().slice(0, 10))
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
-  const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
-  const semana = useMemo(() => buildWeek(), [])
-
-  const citasVisibles = diaSeleccionado
-    ? citas.filter((cita) => cita.fecha.slice(0, 10) === diaSeleccionado)
-    : citas
-
-  const clientesFiltrados = useMemo(() => {
-    const query = clienteQuery.trim().toLowerCase()
-    if (!query) return clientes.slice(0, 8)
-    return clientes.filter((cliente) => cliente.nombre.toLowerCase().includes(query)).slice(0, 8)
-  }, [clientes, clienteQuery])
-
-  const tratamientosFiltrados = useMemo(() => {
-    const query = form.tratamiento.trim().toLowerCase()
-    if (!query) return tratamientos.filter((tratamiento) => tratamiento.activo).slice(0, 8)
-    return tratamientos
-      .filter((tratamiento) => tratamiento.activo && tratamiento.nombre.toLowerCase().includes(query))
-      .slice(0, 8)
-  }, [tratamientos, form.tratamiento])
+  const [vista, setVista] = useState<Vista>('semana')
+  const [fechaAncla, setFechaAncla] = useState(() => new Date())
+  const [modal, setModal] = useState<ModalState>(null)
+  const [diaDetalle, setDiaDetalle] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
       fetch('/api/clientes').then((res) => res.json()),
       fetch('/api/citas').then((res) => res.json()),
       fetch('/api/tratamientos').then((res) => res.json()),
-    ])
-      .then(([clientesData, citasData, tratamientosData]) => {
-        setClientes(Array.isArray(clientesData) ? clientesData : [])
-        setCitas(Array.isArray(citasData) ? citasData : [])
-        setTratamientos(Array.isArray(tratamientosData) ? tratamientosData : [])
-      })
+    ]).then(([clientesData, citasData, tratamientosData]) => {
+      setClientes(Array.isArray(clientesData) ? clientesData : [])
+      setCitas(Array.isArray(citasData) ? citasData : [])
+      setTratamientos(Array.isArray(tratamientosData) ? tratamientosData : [])
+    })
+
+    // Sync con Google Calendar en segundo plano: no bloquea el render inicial.
+    fetch('/api/integraciones/google-calendar/sync', { method: 'POST' })
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data.citas)) setCitas(data.citas) })
+      .catch(() => {})
   }, [])
 
-  const handleCreate = async () => {
-    // TODO: sincronizar con Google Calendar al crear la cita.
-    // Ya existe el endpoint POST /api/integraciones/google-calendar (requiere
-    // GOOGLE_CALENDAR_ACCESS_TOKEN vía OAuth) pero no se invoca desde aquí.
-    setLoading(true)
-    const response = await fetch('/api/citas', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+  const citasPorDia = useMemo(() => {
+    const map = new Map<string, Cita[]>()
+    for (const cita of citas) {
+      const key = dateKey(new Date(cita.fecha))
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(cita)
+    }
+    for (const lista of map.values()) lista.sort((a, b) => a.fecha.localeCompare(b.fecha))
+    return map
+  }, [citas])
+
+  const dias = useMemo(() => (vista === 'semana' ? buildWeek(fechaAncla) : buildMonthGrid(fechaAncla)), [vista, fechaAncla])
+  const hoyKey = dateKey(new Date())
+
+  const navegar = (delta: number) => {
+    setFechaAncla((prev) => {
+      const next = new Date(prev)
+      if (vista === 'semana') next.setDate(prev.getDate() + delta * 7)
+      else next.setMonth(prev.getMonth() + delta, 1)
+      return next
     })
-    const created = await response.json()
-    setCitas((prev) => [created, ...prev])
-    setForm({ clienteId: '', fecha: '', tratamiento: '', estado: 'PENDIENTE' })
-    setClienteQuery('')
-    setLoading(false)
+  }
+
+  const etiquetaRango = useMemo(() => {
+    if (vista === 'mes') return fechaAncla.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' })
+    const semana = buildWeek(fechaAncla)
+    const inicio = semana[0].toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })
+    const fin = semana[6].toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' })
+    return `${inicio} – ${fin}`
+  }, [vista, fechaAncla])
+
+  const abrirCrear = (key: string) => {
+    if (key < hoyKey) return
+    setModal({ modo: 'crear', fechaInicial: key })
+  }
+
+  const handleGuardado = (cita: Cita) => {
+    setCitas((prev) => (prev.some((c) => c.id === cita.id) ? prev.map((c) => (c.id === cita.id ? cita : c)) : [...prev, cita]))
+  }
+
+  const handleEliminado = (citaId: string) => {
+    setCitas((prev) => prev.filter((c) => c.id !== citaId))
+  }
+
+  const chip = (cita: Cita) => {
+    const sinCliente = !cita.cliente
+    const badge = badgeStyles[cita.estado] ?? badgeStyles.PENDIENTE
+    return (
+      <button
+        key={cita.id}
+        type="button"
+        onClick={(event) => { event.stopPropagation(); setModal({ modo: 'editar', cita }) }}
+        className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-semibold transition hover:brightness-95"
+        style={sinCliente ? { background: '#f3c98a', color: '#7a4a08' } : { background: badge.bg, color: badge.color }}
+        title={`${cita.cliente?.nombre ?? 'Sin cliente'} · ${cita.tratamiento}`}
+      >
+        {formatHora(cita.fecha)} {sinCliente ? '⚠ Sin cliente' : cita.cliente!.nombre}
+        {cita.origen === 'GOOGLE' && ' · G'}
+      </button>
+    )
   }
 
   return (
@@ -109,155 +165,145 @@ export default function CitasPage() {
         <div className="card-surface">
           <p className="eyebrow">Citas</p>
           <h1 className="page-heading mt-3 text-3xl">Agenda y check-in</h1>
-          <p className="mt-2 text-slate-600">Administra las citas del día y asigna tratamiento al cliente.</p>
+          <p className="mt-2 text-slate-600">Administra las citas y asigna tratamiento al cliente.</p>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {semana.map((date) => {
-            const key = date.toISOString().slice(0, 10)
-            const activo = diaSeleccionado === key
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setDiaSeleccionado(activo ? null : key)}
-                className={`w-[72px] shrink-0 rounded-2xl py-3 text-center transition ${
-                  activo ? 'bg-gradient-to-br from-[#00483f] to-[#00665b] text-[#fffdf7]' : 'bg-white text-[#334155] hover:bg-[#f1f5f4]'
-                }`}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">{diasSemana[date.getDay()]}</p>
-                <p className="page-heading mt-1 text-lg">{date.getDate()}</p>
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="card-surface">
-            <h2 className="text-xl font-bold text-[#173d36]">Nueva cita</h2>
-            <div className="mt-6 space-y-4">
-              <label className="block text-sm font-medium text-slate-700">Cliente</label>
-              <div className="relative">
-                <input
-                  value={clienteQuery}
-                  onChange={(event) => {
-                    setClienteQuery(event.target.value)
-                    setForm((prev) => ({ ...prev, clienteId: '' }))
-                    setShowClienteDropdown(true)
-                  }}
-                  onFocus={() => setShowClienteDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowClienteDropdown(false), 150)}
-                  autoComplete="off"
-                  placeholder="Busca un cliente por nombre"
-                  className="field mt-2"
-                />
-                {showClienteDropdown && clientesFiltrados.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
-                    {clientesFiltrados.map((cliente) => (
-                      <button
-                        key={cliente.id}
-                        type="button"
-                        onMouseDown={() => {
-                          setForm((prev) => ({ ...prev, clienteId: cliente.id }))
-                          setClienteQuery(cliente.nombre)
-                          setShowClienteDropdown(false)
-                        }}
-                        className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
-                      >
-                        {cliente.nombre}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <label className="block text-sm font-medium text-slate-700">Fecha y hora</label>
-              <input
-                type="datetime-local"
-                value={form.fecha}
-                onChange={(event) => setForm((prev) => ({ ...prev, fecha: event.target.value }))}
-                className="field mt-2"
-              />
-
-              <label className="block text-sm font-medium text-slate-700">Tratamiento</label>
-              <div className="relative">
-                <input
-                  value={form.tratamiento}
-                  onChange={(event) => { setForm((prev) => ({ ...prev, tratamiento: event.target.value })); setShowTratamientoDropdown(true) }}
-                  onFocus={() => setShowTratamientoDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowTratamientoDropdown(false), 150)}
-                  autoComplete="off"
-                  placeholder="Escribe o elige un tratamiento"
-                  className="field mt-2"
-                />
-                {showTratamientoDropdown && tratamientosFiltrados.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-2xl border border-[#dfe8e0] bg-white shadow-lg">
-                    {tratamientosFiltrados.map((tratamiento) => (
-                      <button
-                        key={tratamiento.id}
-                        type="button"
-                        onMouseDown={() => { setForm((prev) => ({ ...prev, tratamiento: tratamiento.nombre })); setShowTratamientoDropdown(false) }}
-                        className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
-                      >
-                        {tratamiento.nombre}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <label className="block text-sm font-medium text-slate-700">Estado</label>
-              <select
-                value={form.estado}
-                onChange={(event) => setForm((prev) => ({ ...prev, estado: event.target.value }))}
-                className="field mt-2"
-              >
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="CONFIRMADA">Confirmada</option>
-                <option value="ATENDIDA">Atendida</option>
-                <option value="CANCELADA">Cancelada</option>
-              </select>
-
-              <button
-                type="button"
-                disabled={loading || !form.clienteId || !form.fecha}
-                onClick={handleCreate}
-                className="btn-brand w-full disabled:opacity-60"
-              >
-                {loading ? 'Guardando...' : 'Crear cita'}
-              </button>
-            </div>
+        <div className="card-surface flex flex-wrap items-center gap-3">
+          <div className="flex overflow-hidden rounded-full border border-[#dfe8e0]">
+            <button
+              type="button"
+              onClick={() => setVista('semana')}
+              className={`px-4 py-2 text-sm font-semibold transition ${vista === 'semana' ? 'bg-[#00483f] text-white' : 'bg-white text-[#334155] hover:bg-[#f1f5f4]'}`}
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              onClick={() => setVista('mes')}
+              className={`px-4 py-2 text-sm font-semibold transition ${vista === 'mes' ? 'bg-[#00483f] text-white' : 'bg-white text-[#334155] hover:bg-[#f1f5f4]'}`}
+            >
+              Mes
+            </button>
           </div>
 
-          <div className="card-surface">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-[#173d36]">Citas próximas</h2>
-              {diaSeleccionado && (
-                <button type="button" onClick={() => setDiaSeleccionado(null)} className="text-xs font-bold text-[#9a7e62]">Ver todas</button>
-              )}
-            </div>
-            <div className="mt-6 space-y-3">
-              {citasVisibles.length === 0 && <p className="text-sm text-slate-500">No hay citas para este día.</p>}
-              {citasVisibles.map((cita) => {
-                const badge = badgeStyles[cita.estado] ?? badgeStyles.PENDIENTE
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => navegar(-1)} aria-label="Anterior" className="flex h-9 w-9 items-center justify-center rounded-full text-[#334155] hover:bg-[#f1f5f4]">‹</button>
+            <button type="button" onClick={() => setFechaAncla(new Date())} className="rounded-full border border-[#dfe8e0] px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#f1f5f4]">Hoy</button>
+            <button type="button" onClick={() => navegar(1)} aria-label="Siguiente" className="flex h-9 w-9 items-center justify-center rounded-full text-[#334155] hover:bg-[#f1f5f4]">›</button>
+          </div>
+
+          <p className="page-heading flex-1 text-base capitalize text-[#173d36]">{etiquetaRango}</p>
+
+          <button
+            type="button"
+            onClick={() => setModal({ modo: 'crear', fechaInicial: dateKey(new Date()) })}
+            className="btn-brand"
+          >
+            + Nueva cita
+          </button>
+        </div>
+
+        <div className="card-surface !p-0 overflow-hidden">
+          {vista === 'semana' ? (
+            <div className="grid grid-flow-col auto-cols-[minmax(150px,1fr)] divide-x divide-[#eef1ec] overflow-x-auto">
+              {dias.map((dia) => {
+                const key = dateKey(dia)
+                const citasDelDia = citasPorDia.get(key) || []
+                const esHoy = key === hoyKey
+                const esPasado = key < hoyKey
+                const colorEtiqueta = esHoy ? 'opacity-80' : (esPasado ? 'text-slate-300' : 'text-slate-500')
                 return (
-                  <div key={cita.id} className="flex items-center gap-4 rounded-2xl border border-[#eef1ec] bg-[#fdfdfb] p-4">
-                    <div className="w-16 shrink-0">
-                      <p className="page-heading text-[15px]">{new Date(cita.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
-                      <p className="mt-0.5 text-[10px] text-slate-400">{new Date(cita.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}</p>
+                  <div
+                    key={key}
+                    onClick={() => abrirCrear(key)}
+                    className={`flex min-h-[420px] flex-col p-2 ${esPasado ? 'cursor-default bg-[#fbfaf6]/60' : 'cursor-pointer hover:bg-[#fbfaf6]'}`}
+                  >
+                    <div className={`mb-2 rounded-lg px-2 py-1.5 text-center ${esHoy ? 'bg-[#00483f] text-white' : ''}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wider ${colorEtiqueta}`}>{diasSemana[(dia.getDay() + 6) % 7]}</p>
+                      <p className={`page-heading text-base ${esPasado && !esHoy ? 'text-slate-300' : ''}`}>{dia.getDate()}</p>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[#173d36]"><ClienteHistorialLink clienteId={cita.cliente.id} nombre={cita.cliente.nombre} /></p>
-                      <p className="mt-0.5 text-[12.5px] text-slate-600">{cita.tratamiento}</p>
+                    <div className="flex-1 space-y-1">
+                      {citasDelDia.map((cita) => chip(cita))}
                     </div>
-                    <span className="shrink-0 rounded-full px-3 py-1 text-[11px] font-extrabold" style={{ background: badge.bg, color: badge.color }}>{cita.estado}</span>
                   </div>
                 )
               })}
             </div>
-          </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-7 divide-x divide-[#eef1ec] border-b border-[#eef1ec] bg-[#fbfaf6]">
+                {diasSemana.map((d) => (
+                  <p key={d} className="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-slate-500">{d}</p>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 grid-rows-6 divide-x divide-y divide-[#eef1ec]">
+                {dias.map((dia) => {
+                  const key = dateKey(dia)
+                  const citasDelDia = citasPorDia.get(key) || []
+                  const esHoy = key === hoyKey
+                  const esPasado = key < hoyKey
+                  const fueraDeMes = dia.getMonth() !== fechaAncla.getMonth()
+                  const visibles = citasDelDia.slice(0, 3)
+                  const restantes = citasDelDia.length - visibles.length
+                  const colorNumero = fueraDeMes || esPasado ? 'text-slate-300' : 'text-slate-500'
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => abrirCrear(key)}
+                      className={`min-h-[110px] space-y-1 p-2 ${esPasado ? 'cursor-default bg-[#fbfaf6]/60' : 'cursor-pointer hover:bg-[#fbfaf6]'} ${fueraDeMes ? 'bg-[#fbfaf6]/60' : ''}`}
+                    >
+                      <p className={`text-[11px] font-bold ${esHoy ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00483f] text-white' : colorNumero}`}>
+                        {dia.getDate()}
+                      </p>
+                      {visibles.map((cita) => chip(cita))}
+                      {restantes > 0 && (
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); setDiaDetalle(key) }}
+                          className="block w-full truncate rounded-md px-2 py-0.5 text-left text-[10px] font-bold text-[#9a7e62] hover:underline"
+                        >
+                          +{restantes} más
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {modal && (
+        <CitaFormModal
+          modo={modal.modo}
+          cita={modal.modo === 'editar' ? modal.cita : undefined}
+          fechaInicial={modal.modo === 'crear' ? modal.fechaInicial : undefined}
+          clientes={clientes}
+          tratamientos={tratamientos}
+          onClose={() => setModal(null)}
+          onGuardado={handleGuardado}
+          onEliminado={handleEliminado}
+        />
+      )}
+
+      {diaDetalle && (
+        <Modal title={`Citas del ${new Date(`${diaDetalle}T00:00:00`).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}`} onClose={() => setDiaDetalle(null)}>
+          <div className="space-y-2">
+            {(citasPorDia.get(diaDetalle) || []).map((cita) => (
+              <button
+                key={cita.id}
+                type="button"
+                onClick={() => { setDiaDetalle(null); setModal({ modo: 'editar', cita }) }}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#eef1ec] px-4 py-3 text-left text-sm hover:bg-[#ecf8f2]"
+              >
+                <span className="font-semibold text-[#173d36]">{formatHora(cita.fecha)} · {cita.cliente?.nombre ?? 'Sin cliente'}</span>
+                <span className="text-slate-500">{cita.tratamiento}</span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
