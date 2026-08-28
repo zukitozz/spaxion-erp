@@ -16,7 +16,7 @@ interface Cabina {
 }
 
 interface DashboardData {
-  citas: { id: string; fecha: string; tratamiento: string; cliente: { id: string; nombre: string } }[]
+  citas: { id: string; fecha: string; tratamiento: string; cliente: { id: string; nombre: string } | null }[]
   cabinas: Cabina[]
   totalFacturado: number
   totalPendiente: number
@@ -91,7 +91,11 @@ export default function DashboardPage() {
                     {new Date(cita.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <div className="min-w-0 flex-1">
-                    <ClienteHistorialLink clienteId={cita.cliente.id} nombre={cita.cliente.nombre} className="font-bold text-[#173d36] underline decoration-dotted underline-offset-2 hover:text-emerald-700" />
+                    {cita.cliente ? (
+                      <ClienteHistorialLink clienteId={cita.cliente.id} nombre={cita.cliente.nombre} className="font-bold text-[#173d36] underline decoration-dotted underline-offset-2 hover:text-emerald-700" />
+                    ) : (
+                      <span className="font-bold text-slate-500">Sin cliente (Google Calendar)</span>
+                    )}
                     <p className="mt-1 text-sm text-slate-600">{cita.tratamiento}</p>
                   </div>
                 </div>

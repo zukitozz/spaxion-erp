@@ -9,7 +9,8 @@ export async function GET() {
   if (guard) return guard
 
   const settings = await prisma.configuracion.upsert({ where: { id: 'default' }, update: {}, create: { id: 'default' } })
-  return NextResponse.json(settings)
+  const { googleRefreshTokenEnc: _googleRefreshTokenEnc, ...safeSettings } = settings
+  return NextResponse.json(safeSettings)
 }
 
 export async function PUT(req: Request) {
@@ -38,5 +39,6 @@ export async function PUT(req: Request) {
     },
   })
 
-  return NextResponse.json(settings)
+  const { googleRefreshTokenEnc: _googleRefreshTokenEnc, ...safeSettings } = settings
+  return NextResponse.json(safeSettings)
 }

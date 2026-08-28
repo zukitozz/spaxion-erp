@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
+import { actualizarEvento, crearEvento, eliminarEvento } from '@/lib/googleCalendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,16 +32,30 @@ export async function POST(req: Request) {
   const guard = await requireApiAuth()
   if (guard) return guard
   const body = await req.json()
+
+  const inicioHoy = new Date()
+  inicioHoy.setHours(0, 0, 0, 0)
+  if (new Date(body.fecha) < inicioHoy) {
+    return NextResponse.json({ error: 'No se pueden crear citas en fechas anteriores a hoy' }, { status: 400 })
+  }
+
   const cita = await prisma.cita.create({
     data: {
-      cliente: { connect: { id: body.clienteId } },
+      cliente: body.clienteId ? { connect: { id: body.clienteId } } : undefined,
       fecha: new Date(body.fecha),
       tratamiento: body.tratamiento,
+      duracionMin: body.duracionMin ? Number(body.duracionMin) : null,
       estado: body.estado || 'PENDIENTE',
       registrado: false,
     },
     include: { cliente: true },
   })
+
+  const googleEventId = await crearEvento(cita)
+  if (googleEventId) {
+    await prisma.cita.update({ where: { id: cita.id }, data: { googleEventId } })
+    cita.googleEventId = googleEventId
+  }
 
   return NextResponse.json(cita, { status: 201 })
 }
@@ -57,12 +72,25 @@ export async function PUT(req: Request) {
   const updated = await prisma.cita.update({
     where: { id: body.id },
     data: {
-      fecha: new Date(body.fecha),
+      cliente: body.clienteId ? { connect: { id: body.clienteId } } : body.clienteId === null ? { disconnect: true } : undefined,
+      fecha: body.fecha ? new Date(body.fecha) : undefined,
       tratamiento: body.tratamiento,
+      duracionMin: body.duracionMin !== undefined ? (body.duracionMin ? Number(body.duracionMin) : null) : undefined,
       estado: body.estado,
-      registrado: body.registrado ?? false,
+      registrado: body.registrado ?? undefined,
     },
+    include: { cliente: true },
   })
+
+  if (updated.googleEventId) {
+    await actualizarEvento(updated)
+  } else {
+    const googleEventId = await crearEvento(updated)
+    if (googleEventId) {
+      await prisma.cita.update({ where: { id: updated.id }, data: { googleEventId } })
+      updated.googleEventId = googleEventId
+    }
+  }
 
   return NextResponse.json(updated)
 }
@@ -77,7 +105,8 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
   }
 
-  await prisma.cita.delete({ where: { id } })
+  const cita = await prisma.cita.delete({ where: { id } })
+  if (cita.googleEventId) await eliminarEvento(cita.googleEventId)
 
   return NextResponse.json({ success: true })
 }

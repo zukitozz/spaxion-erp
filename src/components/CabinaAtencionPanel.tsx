@@ -9,7 +9,7 @@ import { AtencionFotos } from '@/components/AtencionFotos'
 interface Cliente { id: string; nombre: string }
 interface Tratamiento { id: string; nombre: string; activo: boolean }
 interface Esteticista { id: string; name: string }
-interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente }
+interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente | null }
 interface Configuracion { horasExpiracionCita: number }
 interface Producto { id: string; nombre: string; precioVenta: number; stock: number }
 interface AtencionProductoItem { id: string; cantidad: number; precioUnit: number; producto: { id: string; nombre: string } }
@@ -111,7 +111,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
       setHorasExpiracionCita(Math.max(1, Number((configuracionData as Configuracion).horasExpiracionCita) || 24))
       setCitas(
         Array.isArray(citasData)
-          ? citasData.filter((c: CitaPendiente) => !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.fecha).getTime() + horasExpiracionCita * 60 * 60 * 1000 > Date.now())
+          ? citasData.filter((c: CitaPendiente) => Boolean(c.cliente) && !c.registrado && (c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA') && new Date(c.fecha).getTime() + horasExpiracionCita * 60 * 60 * 1000 > Date.now())
           : []
       )
     })
@@ -119,8 +119,9 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
 
   const seleccionarCita = (citaId: string) => {
     const cita = citas.find((c) => c.id === citaId)
-    setForm((prev) => ({ ...prev, citaId, clienteId: cita?.cliente.id ?? prev.clienteId }))
-    if (cita) setClienteQuery(cita.cliente.nombre)
+    if (!cita?.cliente) return
+    setForm((prev) => ({ ...prev, citaId, clienteId: cita.cliente!.id }))
+    setClienteQuery(cita.cliente.nombre)
   }
 
   const clientesFiltrados = useMemo(() => {
@@ -297,7 +298,7 @@ export function CabinaAtencionPanel({ cabina, onClose, onChanged }: CabinaAtenci
                 <option value="">Selecciona cita</option>
                 {citas.map((cita) => (
                   <option key={cita.id} value={cita.id}>
-                    {new Date(cita.fecha).toLocaleString('es-PE')} · {cita.cliente.nombre} · {cita.tratamiento}
+                    {new Date(cita.fecha).toLocaleString('es-PE')} · {cita.cliente?.nombre} · {cita.tratamiento}
                   </option>
                 ))}
               </select>
