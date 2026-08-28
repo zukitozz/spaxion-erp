@@ -253,6 +253,7 @@ model Factura {
   total             Float
   metodoPago        MetodoPago
   estado            String
+  activo            Boolean          @default(true)
   descuentoAplicado Float?           @default(0)
   descuento         Descuento?       @relation(fields: [descuentoId], references: [id])
   descuentoId       String?
@@ -366,6 +367,7 @@ model CierreTurno {
   totalYape          Float
   totalTransferencia Float     @default(0)
   totalDeposito      Float     @default(0)
+  activo             Boolean   @default(true)
   creadoAt           DateTime  @default(now())
   facturas           Factura[]
 }

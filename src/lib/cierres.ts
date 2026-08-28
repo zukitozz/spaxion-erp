@@ -8,7 +8,7 @@ export const facturaPendienteInclude = {
 
 export function obtenerFacturasPendientes(client: ClientLike) {
   return client.factura.findMany({
-    where: { estado: 'PAGADO', cierreTurnoId: null },
+    where: { estado: 'PAGADO', cierreTurnoId: null, activo: true },
     include: facturaPendienteInclude,
     orderBy: { creadoAt: 'asc' },
   })

@@ -17,8 +17,8 @@ export async function GET() {
   const [citas, cabinas, facturas, pendientes, productos] = await Promise.all([
     prisma.cita.findMany({ where: { fecha: { gte: start, lt: end } }, include: { cliente: true }, orderBy: { fecha: 'asc' } }),
     prisma.cabina.findMany({ orderBy: { nombre: 'asc' }, include: atencionActualInclude }),
-    prisma.factura.aggregate({ where: { creadoAt: { gte: start, lt: end } }, _sum: { total: true } }),
-    prisma.factura.aggregate({ where: { creadoAt: { gte: start, lt: end }, estado: 'PENDIENTE' }, _sum: { total: true } }),
+    prisma.factura.aggregate({ where: { creadoAt: { gte: start, lt: end }, activo: true }, _sum: { total: true } }),
+    prisma.factura.aggregate({ where: { creadoAt: { gte: start, lt: end }, estado: 'PENDIENTE', activo: true }, _sum: { total: true } }),
     prisma.producto.count({ where: { stock: { lte: 5 } } }),
   ])
 
