@@ -20,8 +20,8 @@ interface Atencion {
   horaInicio: string
   horaFin: string | null
   notas: string | null
-  estado: 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
-  cabina: Cabina
+  estado: 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
+  cabina: Cabina | null
   cliente: Cliente
   tratamiento: { id: string; nombre: string; duracionMin: number; precio: number }
   esteticista: Esteticista
@@ -30,6 +30,7 @@ interface Atencion {
 }
 
 const estadoLabels: Record<Atencion['estado'], string> = {
+  PENDIENTE: 'Pendiente',
   EN_CURSO: 'En curso',
   FINALIZADA: 'Finalizada',
   CANCELADA: 'Cancelada',
@@ -72,7 +73,7 @@ function DetalleAtencion({ atencion, onClose }: { atencion: Atencion; onClose: (
         <div className="grid gap-3 sm:grid-cols-2">
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Tratamiento</p><p className="text-sm font-semibold text-slate-900">{atencion.tratamiento.nombre}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Costo</p><p className="text-sm font-semibold text-slate-900">S/ {atencion.tratamiento.precio.toFixed(2)}</p></div>
-          <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Cabina</p><p className="text-sm text-slate-700">{atencion.cabina.nombre}</p></div>
+          <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Cabina</p><p className="text-sm text-slate-700">{atencion.cabina?.nombre ?? 'Sin cabina'}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Esteticista</p><p className="text-sm text-slate-700">{atencion.esteticista.name}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Inicio</p><p className="text-sm text-slate-700">{new Date(atencion.horaInicio).toLocaleString('es-PE')}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Duración</p><p className="text-sm text-slate-700">{calcularDuracion(atencion)}</p></div>
@@ -296,6 +297,7 @@ function HistoricoAtencionesContent() {
                   <label className="block text-sm font-medium text-slate-700">Estado</label>
                   <select value={filtros.estado} onChange={(e) => setFiltros((prev) => ({ ...prev, estado: e.target.value }))} className="field mt-2">
                     <option value="">Todos</option>
+                    <option value="PENDIENTE">Pendiente</option>
                     <option value="EN_CURSO">En curso</option>
                     <option value="FINALIZADA">Finalizada</option>
                     <option value="CANCELADA">Cancelada</option>

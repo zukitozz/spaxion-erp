@@ -25,6 +25,8 @@ function clienteData(body: Record<string, unknown>) {
     email: (body.email as string) || null,
     fechaNacimiento: body.fechaNacimiento ? new Date(body.fechaNacimiento as string) : null,
     peso: body.peso ? Number(body.peso) : null,
+    edad: body.edad ? Number(body.edad) : null,
+    altura: body.altura ? Number(body.altura) : null,
     notas: (body.notas as string) || null,
   }
 }

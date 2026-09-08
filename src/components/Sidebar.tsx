@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
+import { useConfiguracion } from '@/components/ConfiguracionProvider'
 import type { UserRole } from '@/types/user'
 
 const STAFF: UserRole[] = ['ADMIN', 'SUPERVISOR']
@@ -64,8 +65,9 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const { usaCabinas } = useConfiguracion()
   const role = session?.user?.role
-  const items = navigation.filter((item) => !role || item.roles.includes(role))
+  const items = navigation.filter((item) => (!role || item.roles.includes(role)) && (item.href !== '/cabinas' || usaCabinas))
   const activeHref = getActiveHref(pathname)
   const initials = (session?.user?.name || '?')
     .split(' ')

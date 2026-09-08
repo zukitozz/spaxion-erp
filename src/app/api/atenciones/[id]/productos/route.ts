@@ -27,15 +27,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const guard = await requireApiAuth([...ROLES_ATENCION])
   if (guard) return guard
 
-  const atencion = await prisma.atencionCabina.findUnique({ where: { id: params.id } })
+  const atencion = await prisma.atencion.findUnique({
+    where: { id: params.id },
+    include: { tratamientos: { select: { estado: true } } },
+  })
   if (!atencion) {
     return NextResponse.json({ error: 'Atención no encontrada' }, { status: 404 })
   }
-  if (atencion.facturaId) {
-    return NextResponse.json({ error: 'Esta atención ya fue facturada' }, { status: 409 })
-  }
-  if (atencion.estado === 'CANCELADA') {
-    return NextResponse.json({ error: 'La atención está cancelada' }, { status: 409 })
+  const abierta = atencion.tratamientos.some((t) => t.estado === 'PENDIENTE' || t.estado === 'EN_CURSO')
+  if (!abierta) {
+    return NextResponse.json({ error: 'La atención ya está cerrada' }, { status: 409 })
   }
 
   const body = await req.json()

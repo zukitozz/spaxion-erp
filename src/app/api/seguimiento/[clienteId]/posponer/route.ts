@@ -21,10 +21,12 @@ export async function POST(req: Request, { params }: { params: { clienteId: stri
     select: {
       recordatorioPospuestoHasta: true,
       atenciones: {
-        where: { estado: 'FINALIZADA', horaFin: { not: null } },
-        orderBy: { horaFin: 'desc' },
-        take: 1,
-        select: { horaFin: true, diasProximoTratamiento: true, tratamiento: { select: { diasProximoTratamiento: true } } },
+        select: {
+          tratamientos: {
+            where: { estado: 'FINALIZADA', horaFin: { not: null } },
+            select: { horaFin: true, diasProximoTratamiento: true, tratamiento: { select: { diasProximoTratamiento: true } } },
+          },
+        },
       },
     },
   })
@@ -33,7 +35,12 @@ export async function POST(req: Request, { params }: { params: { clienteId: stri
     return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
   }
 
-  const ultima = cliente.atenciones[0]
+  const lineas = cliente.atenciones.flatMap((atencion) => atencion.tratamientos)
+  const ultima = lineas.reduce<typeof lineas[number] | null>(
+    (masReciente, linea) =>
+      !masReciente || (linea.horaFin && masReciente.horaFin && linea.horaFin > masReciente.horaFin) ? linea : masReciente,
+    null
+  )
   const diasSugeridos = ultima ? ultima.diasProximoTratamiento ?? ultima.tratamiento.diasProximoTratamiento ?? null : null
 
   let fechaBase = new Date()

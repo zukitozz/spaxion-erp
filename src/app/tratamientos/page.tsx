@@ -199,7 +199,6 @@ export default function TratamientosPage() {
       {mostrarFormulario && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
-          onClick={() => setMostrarFormulario(false)}
         >
           <div className="card-surface w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">

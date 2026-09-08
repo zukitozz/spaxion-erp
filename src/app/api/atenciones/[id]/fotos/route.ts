@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const guard = await requireApiAuth([...ROLES_ATENCION])
   if (guard) return guard
 
-  const atencion = await prisma.atencionCabina.findUnique({ where: { id: params.id } })
+  const atencion = await prisma.atencion.findUnique({ where: { id: params.id } })
   if (!atencion) {
     return NextResponse.json({ error: 'Atención no encontrada' }, { status: 404 })
   }

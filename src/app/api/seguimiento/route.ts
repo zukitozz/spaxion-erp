@@ -26,13 +26,15 @@ export async function GET() {
       celular: true,
       recordatorioPospuestoHasta: true,
       atenciones: {
-        where: { estado: 'FINALIZADA', horaFin: { not: null } },
-        orderBy: { horaFin: 'desc' },
-        take: 1,
         select: {
-          horaFin: true,
-          diasProximoTratamiento: true,
-          tratamiento: { select: { nombre: true, diasProximoTratamiento: true } },
+          tratamientos: {
+            where: { estado: 'FINALIZADA', horaFin: { not: null } },
+            select: {
+              horaFin: true,
+              diasProximoTratamiento: true,
+              tratamiento: { select: { nombre: true, diasProximoTratamiento: true } },
+            },
+          },
         },
       },
     },
@@ -41,7 +43,12 @@ export async function GET() {
   const hoy = new Date()
 
   const resultado = clientes.map((cliente) => {
-    const ultima = cliente.atenciones[0]
+    const lineas = cliente.atenciones.flatMap((atencion) => atencion.tratamientos)
+    const ultima = lineas.reduce<typeof lineas[number] | null>(
+      (masReciente, linea) =>
+        !masReciente || (linea.horaFin && masReciente.horaFin && linea.horaFin > masReciente.horaFin) ? linea : masReciente,
+      null
+    )
     const diasSugeridos = ultima ? ultima.diasProximoTratamiento ?? ultima.tratamiento.diasProximoTratamiento ?? null : null
 
     let fechaSugerida: Date | null = null
