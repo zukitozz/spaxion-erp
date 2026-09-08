@@ -38,11 +38,16 @@ export async function cambiarEstadoCabina(
 
 export const atencionActualInclude = {
   atenciones: {
-    where: { estado: 'EN_CURSO' as const },
+    where: { tratamientos: { some: { estado: { in: ['PENDIENTE', 'EN_CURSO'] } } } },
     include: {
       cliente: { select: { id: true, nombre: true } },
-      tratamiento: { select: { id: true, nombre: true, diasProximoTratamiento: true } },
-      esteticista: { select: { id: true, name: true } },
+      tratamientos: {
+        orderBy: { orden: 'asc' as const },
+        include: {
+          tratamiento: { select: { id: true, nombre: true, diasProximoTratamiento: true } },
+          esteticista: { select: { id: true, name: true } },
+        },
+      },
     },
     take: 1,
   },

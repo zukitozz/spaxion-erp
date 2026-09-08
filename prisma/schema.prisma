@@ -8,19 +8,19 @@ datasource db {
 }
 
 model User {
-  id                    String                 @id @default(uuid())
-  name                  String
-  email                 String                 @unique
-  password              String
-  role                  UserRole               @default(ADMIN)
-  celular1              String?
-  celular2              String?
-  createdAt             DateTime               @default(now())
-  cierresTurno          CierreTurno[]
-  facturas              Factura[]
-  atenciones            AtencionCabina[]       @relation("AtencionesEsteticista")
-  cabinaEstadoLogs      CabinaEstadoLog[]
-  movimientosInventario MovimientoInventario[]
+  id                     String                 @id @default(uuid())
+  name                   String
+  email                  String                 @unique
+  password               String
+  role                   UserRole               @default(ADMIN)
+  celular1               String?
+  celular2               String?
+  createdAt              DateTime               @default(now())
+  cierresTurno           CierreTurno[]
+  facturas               Factura[]
+  tratamientosRealizados AtencionTratamiento[]  @relation("AtencionesEsteticista")
+  cabinaEstadoLogs       CabinaEstadoLog[]
+  movimientosInventario  MovimientoInventario[]
 }
 
 enum UserRole {
@@ -30,38 +30,40 @@ enum UserRole {
 }
 
 model Cliente {
-  id                         String           @id @default(uuid())
+  id                         String     @id @default(uuid())
   nombre                     String
-  dni                        String?          @unique
-  ruc                        String?          @unique
+  dni                        String?    @unique
+  ruc                        String?    @unique
   razonSocial                String?
   celular                    String?
   distrito                   String?
   email                      String?
   fechaNacimiento            DateTime?
   peso                       Float?
+  edad                       Int?
+  altura                     Float?
   notas                      String?
   recordatorioPospuestoHasta DateTime?
   citas                      Cita[]
   facturas                   Factura[]
-  atenciones                 AtencionCabina[]
-  createdAt                  DateTime         @default(now())
+  atenciones                 Atencion[]
+  createdAt                  DateTime   @default(now())
 }
 
 model Cita {
-  id            String           @id @default(uuid())
-  cliente       Cliente?         @relation(fields: [clienteId], references: [id])
+  id            String     @id @default(uuid())
+  cliente       Cliente?   @relation(fields: [clienteId], references: [id])
   clienteId     String?
   fecha         DateTime
   tratamiento   String
   duracionMin   Int?
   descripcion   String?
-  estado        CitaEstado       @default(PENDIENTE)
-  registrado    Boolean          @default(false)
-  origen        CitaOrigen       @default(APP)
-  googleEventId String?          @unique
-  createdAt     DateTime         @default(now())
-  atenciones    AtencionCabina[]
+  estado        CitaEstado @default(PENDIENTE)
+  registrado    Boolean    @default(false)
+  origen        CitaOrigen @default(APP)
+  googleEventId String?    @unique
+  createdAt     DateTime   @default(now())
+  atenciones    Atencion[]
 }
 
 enum CitaEstado {
@@ -82,7 +84,7 @@ model Cabina {
   nombre     String
   estado     CabinaEstado      @default(DISPONIBLE)
   createdAt  DateTime          @default(now())
-  atenciones AtencionCabina[]
+  atenciones Atencion[]
   estadoLogs CabinaEstadoLog[]
 }
 
@@ -94,57 +96,82 @@ enum CabinaEstado {
 }
 
 enum AtencionEstado {
+  PENDIENTE
   EN_CURSO
   FINALIZADA
   CANCELADA
 }
 
-model AtencionCabina {
+// Representa una visita/sesión del cliente. Ya no requiere cabina ni un único
+// tratamiento: el detalle de cada tratamiento vive en AtencionTratamiento.
+model Atencion {
+  id         String    @id @default(uuid())
+  cabina     Cabina?   @relation(fields: [cabinaId], references: [id])
+  cabinaId   String?
+  cliente    Cliente   @relation(fields: [clienteId], references: [id])
+  clienteId  String
+  cita       Cita?     @relation(fields: [citaId], references: [id])
+  citaId     String?
+  horaInicio DateTime  @default(now())
+  horaFin    DateTime?
+  notas      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  estadoLogs   CabinaEstadoLog[]
+  fotos        AtencionFoto[]
+  productos    AtencionProducto[]
+  tratamientos AtencionTratamiento[]
+
+  @@index([cabinaId])
+  @@index([clienteId])
+  @@index([citaId])
+}
+
+// Línea de tratamiento dentro de una Atencion (visita). Una visita puede tener
+// varias, cada una con su propia esteticista, estado y horaInicio/horaFin
+// para medir cuánto demora cada tratamiento.
+model AtencionTratamiento {
   id                     String         @id @default(uuid())
-  cabina                 Cabina         @relation(fields: [cabinaId], references: [id])
-  cabinaId               String
-  cliente                Cliente        @relation(fields: [clienteId], references: [id])
-  clienteId              String
+  atencion               Atencion       @relation(fields: [atencionId], references: [id])
+  atencionId             String
   tratamiento            Tratamiento    @relation(fields: [tratamientoId], references: [id])
   tratamientoId          String
   esteticista            User           @relation("AtencionesEsteticista", fields: [esteticistaId], references: [id])
   esteticistaId          String
-  cita                   Cita?          @relation(fields: [citaId], references: [id])
-  citaId                 String?
-  estado                 AtencionEstado @default(EN_CURSO)
-  horaInicio             DateTime       @default(now())
+  estado                 AtencionEstado @default(PENDIENTE)
+  horaInicio             DateTime?
   horaFin                DateTime?
   notas                  String?
   diasProximoTratamiento Int?
+  orden                  Int            @default(0)
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
   factura   Factura? @relation(fields: [facturaId], references: [id])
   facturaId String?
 
-  estadoLogs CabinaEstadoLog[]
-  fotos      AtencionFoto[]
-  productos  AtencionProducto[]
-
-  @@index([cabinaId, estado])
-  @@index([clienteId])
+  @@index([atencionId])
   @@index([tratamientoId])
   @@index([esteticistaId])
-  @@index([citaId])
   @@index([facturaId])
 }
 
 model AtencionProducto {
-  id         String         @id @default(uuid())
-  atencion   AtencionCabina @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  atencion   Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
   atencionId String
-  producto   Producto       @relation(fields: [productoId], references: [id])
+  producto   Producto @relation(fields: [productoId], references: [id])
   productoId String
-  cantidad   Int            @default(1)
+  cantidad   Int      @default(1)
   precioUnit Float
-  creadoAt   DateTime       @default(now())
+  creadoAt   DateTime @default(now())
+
+  factura   Factura? @relation(fields: [facturaId], references: [id])
+  facturaId String?
 
   @@index([atencionId])
+  @@index([facturaId])
 }
 
 enum FotoTipo {
@@ -154,29 +181,29 @@ enum FotoTipo {
 }
 
 model AtencionFoto {
-  id          String         @id @default(uuid())
-  atencion    AtencionCabina @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  atencion    Atencion  @relation(fields: [atencionId], references: [id], onDelete: Cascade)
   atencionId  String
   tipo        FotoTipo?
   key         String
   descripcion String?
-  creadoAt    DateTime       @default(now())
+  creadoAt    DateTime  @default(now())
 
   @@index([atencionId])
 }
 
 model CabinaEstadoLog {
-  id             String          @id @default(uuid())
-  cabina         Cabina          @relation(fields: [cabinaId], references: [id])
+  id             String       @id @default(uuid())
+  cabina         Cabina       @relation(fields: [cabinaId], references: [id])
   cabinaId       String
   estadoAnterior CabinaEstado
   estadoNuevo    CabinaEstado
-  usuario        User            @relation(fields: [usuarioId], references: [id])
+  usuario        User         @relation(fields: [usuarioId], references: [id])
   usuarioId      String
-  atencion       AtencionCabina? @relation(fields: [atencionId], references: [id])
+  atencion       Atencion?    @relation(fields: [atencionId], references: [id])
   atencionId     String?
   motivo         String?
-  creadoAt       DateTime        @default(now())
+  creadoAt       DateTime     @default(now())
 
   @@index([cabinaId, creadoAt])
 }
@@ -230,7 +257,7 @@ model Tratamiento {
   diasProximoTratamiento Int?
   creadoAt               DateTime              @default(now())
   insumos                TratamientoProducto[]
-  atenciones             AtencionCabina[]
+  atenciones             AtencionTratamiento[]
 }
 
 model TratamientoProducto {
@@ -246,20 +273,21 @@ model TratamientoProducto {
 }
 
 model Factura {
-  id                String           @id @default(uuid())
-  cliente           Cliente          @relation(fields: [clienteId], references: [id])
-  clienteId         String
-  tipo              FacturaTipo
-  total             Float
-  metodoPago        MetodoPago
-  estado            String
-  activo            Boolean          @default(true)
-  descuentoAplicado Float?           @default(0)
-  descuento         Descuento?       @relation(fields: [descuentoId], references: [id])
-  descuentoId       String?
-  creadoAt          DateTime         @default(now())
-  items             FacturaItem[]
-  atenciones        AtencionCabina[]
+  id                   String                @id @default(uuid())
+  cliente              Cliente               @relation(fields: [clienteId], references: [id])
+  clienteId            String
+  tipo                 FacturaTipo
+  total                Float
+  metodoPago           MetodoPago
+  estado               String
+  activo               Boolean               @default(true)
+  descuentoAplicado    Float?                @default(0)
+  descuento            Descuento?            @relation(fields: [descuentoId], references: [id])
+  descuentoId          String?
+  creadoAt             DateTime              @default(now())
+  items                FacturaItem[]
+  atencionTratamientos AtencionTratamiento[]
+  atencionProductos    AtencionProducto[]
 
   tipoComprobante             String?
   numeracionComprobante       String?
@@ -387,6 +415,7 @@ model Configuracion {
   facturacionEndpoint   String?
   facturacionActivo     Boolean  @default(false)
   horasExpiracionCita   Int      @default(24)
+  usaCabinas            Boolean  @default(true)
   actualizadoAt         DateTime @updatedAt
 }
 

@@ -131,11 +131,11 @@ export default function CabinasPage() {
       </div>
 
       {cabinaSeleccionada && (
-        <Modal title={cabinaSeleccionada.nombre} onClose={() => setSelectedCabinaId(null)}>
+        <Modal title={cabinaSeleccionada.nombre} size="lg" onClose={() => setSelectedCabinaId(null)}>
           <CabinaAtencionPanel
             cabina={cabinaSeleccionada}
             onClose={() => setSelectedCabinaId(null)}
-            onChanged={() => { void load(); setSelectedCabinaId(null) }}
+            onChanged={() => { void load() }}
           />
         </Modal>
       )}

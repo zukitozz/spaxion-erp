@@ -1,15 +1,9 @@
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
+import type { AtencionDetalle } from '@/components/AtencionEnCursoPanel'
 
 export type CabinaEstado = 'DISPONIBLE' | 'ATENCION' | 'LIMPIEZA' | 'MANTENIMIENTO'
 
-export interface AtencionActual {
-  id: string
-  horaInicio: string
-  notas: string | null
-  cliente: { id: string; nombre: string }
-  tratamiento: { nombre: string; diasProximoTratamiento?: number | null }
-  esteticista: { name: string }
-}
+export type AtencionActual = AtencionDetalle
 
 interface CabinaCardProps {
   nombre: string
@@ -32,7 +26,17 @@ const estadoLabels: Record<CabinaEstado, string> = {
   MANTENIMIENTO: 'Mantenimiento',
 }
 
+function tratamientoActual(atencion: AtencionActual) {
+  return (
+    atencion.tratamientos.find((t) => t.estado === 'EN_CURSO') ??
+    atencion.tratamientos.find((t) => t.estado === 'PENDIENTE') ??
+    null
+  )
+}
+
 export function CabinaCard({ nombre, estado, atencionActual, onClick }: CabinaCardProps) {
+  const linea = atencionActual ? tratamientoActual(atencionActual) : null
+
   return (
     <div
       role={onClick ? 'button' : undefined}
@@ -47,9 +51,9 @@ export function CabinaCard({ nombre, estado, atencionActual, onClick }: CabinaCa
         <div className="mt-3 space-y-1 text-sm">
           <p className="text-slate-700">
             <ClienteHistorialLink clienteId={atencionActual.cliente.id} nombre={atencionActual.cliente.nombre} stopPropagation className="font-semibold underline decoration-dotted underline-offset-2 hover:text-emerald-700" />
-            {' '}· {atencionActual.tratamiento.nombre}
+            {linea ? <> · {linea.tratamiento.nombre}</> : null}
           </p>
-          <p className="text-slate-500">Esteticista: {atencionActual.esteticista.name}</p>
+          {linea && <p className="text-slate-500">Esteticista: {linea.esteticista.name}</p>}
           <p className="text-slate-500">Desde {new Date(atencionActual.horaInicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
         </div>
       )}

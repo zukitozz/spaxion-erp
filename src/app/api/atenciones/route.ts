@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
@@ -7,12 +8,25 @@ import { cambiarEstadoCabina } from '@/lib/cabinas'
 export const dynamic = 'force-dynamic'
 
 const include = {
-  cabina: { select: { id: true, nombre: true } },
-  cliente: { select: { id: true, nombre: true } },
+  atencion: {
+    select: {
+      id: true,
+      cabina: { select: { id: true, nombre: true } },
+      cliente: { select: { id: true, nombre: true } },
+      cita: { select: { id: true, fecha: true } },
+      fotos: { orderBy: { creadoAt: 'asc' as const } },
+    },
+  },
   tratamiento: { select: { id: true, nombre: true, duracionMin: true, precio: true } },
   esteticista: { select: { id: true, name: true } },
-  cita: { select: { id: true, fecha: true } },
-  fotos: { orderBy: { creadoAt: 'asc' as const } },
+} satisfies Prisma.AtencionTratamientoInclude
+
+type LineaConAtencion = Prisma.AtencionTratamientoGetPayload<{ include: typeof include }>
+
+function aplanar(linea: LineaConAtencion) {
+  const { atencion, ...resto } = linea
+  // resto.id (línea de tratamiento) debe prevalecer sobre atencion.id (la visita).
+  return { ...atencion, ...resto, atencionId: atencion.id }
 }
 
 const PAGE_SIZE_DEFAULT = 15
@@ -34,11 +48,9 @@ export async function GET(req: Request) {
   const pageSize = Math.min(PAGE_SIZE_MAX, Math.max(1, Number(url.searchParams.get('pageSize')) || PAGE_SIZE_DEFAULT))
 
   const where = {
-    ...(clienteId ? { clienteId } : {}),
     ...(tratamientoId ? { tratamientoId } : {}),
-    ...(cabinaId ? { cabinaId } : {}),
     ...(esteticistaId ? { esteticistaId } : {}),
-    ...(estado ? { estado: estado as 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA' } : {}),
+    ...(estado ? { estado: estado as 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA' } : {}),
     ...(desde || hasta
       ? {
           horaInicio: {
@@ -47,20 +59,28 @@ export async function GET(req: Request) {
           },
         }
       : {}),
+    ...(clienteId || cabinaId
+      ? {
+          atencion: {
+            ...(clienteId ? { clienteId } : {}),
+            ...(cabinaId ? { cabinaId } : {}),
+          },
+        }
+      : {}),
   }
 
   const [atenciones, total] = await Promise.all([
-    prisma.atencionCabina.findMany({
+    prisma.atencionTratamiento.findMany({
       where,
       include,
       orderBy: { horaInicio: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    prisma.atencionCabina.count({ where }),
+    prisma.atencionTratamiento.count({ where }),
   ])
 
-  return NextResponse.json({ items: atenciones, total, page, pageSize })
+  return NextResponse.json({ items: atenciones.map(aplanar), total, page, pageSize })
 }
 
 export async function POST(req: Request) {
@@ -68,9 +88,9 @@ export async function POST(req: Request) {
   if (guard) return guard
 
   const body = await req.json()
-  if (!body.cabinaId || !body.clienteId || !body.tratamientoId || !body.esteticistaId) {
+  if (!body.clienteId || !body.tratamientoId || !body.esteticistaId) {
     return NextResponse.json(
-      { error: 'cabinaId, clienteId, tratamientoId y esteticistaId son requeridos' },
+      { error: 'clienteId, tratamientoId y esteticistaId son requeridos' },
       { status: 400 }
     )
   }
@@ -81,15 +101,17 @@ export async function POST(req: Request) {
   }
 
   const esteticista = await prisma.user.findUnique({ where: { id: body.esteticistaId } })
-  if (!esteticista || esteticista.role !== 'ESTETICISTA') {
+  if (esteticista?.role !== 'ESTETICISTA') {
     return NextResponse.json({ error: 'El usuario seleccionado no es un esteticista' }, { status: 400 })
   }
 
   try {
     const atencion = await prisma.$transaction(async (tx) => {
-      const cabina = await tx.cabina.findUnique({ where: { id: body.cabinaId } })
-      if (!cabina) throw new Error('CABINA_NO_ENCONTRADA')
-      if (cabina.estado !== 'DISPONIBLE') throw new Error('CABINA_NO_DISPONIBLE')
+      if (body.cabinaId) {
+        const cabina = await tx.cabina.findUnique({ where: { id: body.cabinaId } })
+        if (!cabina) throw new Error('CABINA_NO_ENCONTRADA')
+        if (cabina.estado !== 'DISPONIBLE') throw new Error('CABINA_NO_DISPONIBLE')
+      }
 
       if (body.citaId) {
         const cita = await tx.cita.findUnique({ where: { id: body.citaId } })
@@ -104,24 +126,40 @@ export async function POST(req: Request) {
         }
       }
 
-      const nueva = await tx.atencionCabina.create({
+      const nueva = await tx.atencion.create({
         data: {
-          cabinaId: body.cabinaId,
           clienteId: body.clienteId,
-          tratamientoId: body.tratamientoId,
-          esteticistaId: body.esteticistaId,
+          cabinaId: body.cabinaId || null,
           citaId: body.citaId || null,
           notas: body.notas || null,
+          tratamientos: {
+            create: {
+              tratamientoId: body.tratamientoId,
+              esteticistaId: body.esteticistaId,
+              orden: 0,
+            },
+          },
         },
-        include,
+        include: {
+          cliente: { select: { id: true, nombre: true } },
+          cabina: { select: { id: true, nombre: true } },
+          tratamientos: {
+            include: {
+              tratamiento: { select: { id: true, nombre: true, diasProximoTratamiento: true } },
+              esteticista: { select: { id: true, name: true } },
+            },
+          },
+        },
       })
 
-      await cambiarEstadoCabina(tx, {
-        cabinaId: body.cabinaId,
-        estadoNuevo: 'ATENCION',
-        usuarioId: session.user.id,
-        atencionId: nueva.id,
-      })
+      if (body.cabinaId) {
+        await cambiarEstadoCabina(tx, {
+          cabinaId: body.cabinaId,
+          estadoNuevo: 'ATENCION',
+          usuarioId: session.user.id,
+          atencionId: nueva.id,
+        })
+      }
 
       return nueva
     })

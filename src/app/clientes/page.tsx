@@ -17,6 +17,8 @@ interface Cliente {
   email: string | null
   fechaNacimiento: string | null
   peso: number | null
+  edad: number | null
+  altura: number | null
   notas: string | null
 }
 
@@ -24,7 +26,7 @@ const PAGE_SIZE = 10
 
 const emptyForm = {
   nombre: '', dni: '', ruc: '', razonSocial: '', celular: '', distrito: '',
-  email: '', fechaNacimiento: '', peso: '', notas: '',
+  email: '', fechaNacimiento: '', peso: '', edad: '', altura: '', notas: '',
 }
 
 function documentLabel(cliente: Cliente) {
@@ -87,6 +89,8 @@ export default function ClientesPage() {
       email: cliente.email || '',
       fechaNacimiento: cliente.fechaNacimiento ? cliente.fechaNacimiento.slice(0, 10) : '',
       peso: cliente.peso?.toString() || '',
+      edad: cliente.edad?.toString() || '',
+      altura: cliente.altura?.toString() || '',
       notas: cliente.notas || '',
     })
     setMostrarFormulario(true)
@@ -110,6 +114,8 @@ export default function ClientesPage() {
         ...form,
         id: editingId || undefined,
         peso: form.peso ? Number(form.peso) : undefined,
+        edad: form.edad ? Number(form.edad) : undefined,
+        altura: form.altura ? Number(form.altura) : undefined,
         fechaNacimiento: form.fechaNacimiento || undefined,
       }),
     })
@@ -229,7 +235,6 @@ export default function ClientesPage() {
       {mostrarFormulario && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
-          onClick={() => setMostrarFormulario(false)}
         >
           <div className="card-surface w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">
@@ -286,15 +291,24 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label htmlFor="cliente-peso" className="block text-sm font-medium text-slate-700">Peso</label>
+                  <label htmlFor="cliente-peso" className="block text-sm font-medium text-slate-700">Peso (kg)</label>
                   <input id="cliente-peso" type="number" value={form.peso} onChange={(event) => setForm((prev) => ({ ...prev, peso: event.target.value }))} className="field mt-2" />
                 </div>
                 <div>
-                  <label htmlFor="cliente-notas" className="block text-sm font-medium text-slate-700">Notas</label>
-                  <input id="cliente-notas" value={form.notas} onChange={(event) => setForm((prev) => ({ ...prev, notas: event.target.value }))} className="field mt-2" />
+                  <label htmlFor="cliente-edad" className="block text-sm font-medium text-slate-700">Edad</label>
+                  <input id="cliente-edad" type="number" value={form.edad} onChange={(event) => setForm((prev) => ({ ...prev, edad: event.target.value }))} className="field mt-2" />
                 </div>
+                <div>
+                  <label htmlFor="cliente-altura" className="block text-sm font-medium text-slate-700">Altura (cm)</label>
+                  <input id="cliente-altura" type="number" value={form.altura} onChange={(event) => setForm((prev) => ({ ...prev, altura: event.target.value }))} className="field mt-2" />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="cliente-notas" className="block text-sm font-medium text-slate-700">Notas</label>
+                <input id="cliente-notas" value={form.notas} onChange={(event) => setForm((prev) => ({ ...prev, notas: event.target.value }))} className="field mt-2" />
               </div>
 
               <button

@@ -1,33 +1,32 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarCheck, AlertTriangle, Banknote, CreditCard } from 'lucide-react'
-import { useAppStore } from '@/store/useAppStore'
-import { CabinaCard, type AtencionActual, type CabinaEstado } from '@/components/CabinaCard'
+import { CalendarCheck, AlertTriangle, Banknote, CreditCard, Plus } from 'lucide-react'
 import { Modal } from '@/components/Modal'
-import { CabinaAtencionPanel } from '@/components/CabinaAtencionPanel'
+import { AtencionEnCursoPanel, type AtencionDetalle } from '@/components/AtencionEnCursoPanel'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
-
-interface Cabina {
-  id: string
-  nombre: string
-  estado: CabinaEstado
-  atencionActual: AtencionActual | null
-}
 
 interface DashboardData {
   citas: { id: string; fecha: string; tratamiento: string; cliente: { id: string; nombre: string } | null }[]
-  cabinas: Cabina[]
+  atencionesEnCurso: AtencionDetalle[]
   totalFacturado: number
   totalPendiente: number
   productosStockBajo: number
 }
 
+function tratamientoActual(atencion: AtencionDetalle) {
+  const enCurso = atencion.tratamientos.find((t) => t.estado === 'EN_CURSO')
+  if (enCurso) return `${enCurso.tratamiento.nombre} (en curso)`
+  const pendiente = atencion.tratamientos.find((t) => t.estado === 'PENDIENTE')
+  if (pendiente) return `${pendiente.tratamiento.nombre} (pendiente)`
+  return 'Sin tratamiento activo'
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const selectedCabinaId = useAppStore((state) => state.selectedCabinaId)
-  const setSelectedCabinaId = useAppStore((state) => state.setSelectedCabinaId)
+  const [atencionSeleccionadaId, setAtencionSeleccionadaId] = useState<string | null>(null)
+  const [creandoAtencion, setCreandoAtencion] = useState(false)
 
   const load = useCallback(() => {
     fetch('/api/dashboard')
@@ -39,7 +38,7 @@ export default function DashboardPage() {
       .then((payload: Partial<DashboardData>) => {
         setData({
           citas: Array.isArray(payload.citas) ? payload.citas : [],
-          cabinas: Array.isArray(payload.cabinas) ? payload.cabinas : [],
+          atencionesEnCurso: Array.isArray(payload.atencionesEnCurso) ? payload.atencionesEnCurso : [],
           totalFacturado: typeof payload.totalFacturado === 'number' ? payload.totalFacturado : 0,
           totalPendiente: typeof payload.totalPendiente === 'number' ? payload.totalPendiente : 0,
           productosStockBajo: typeof payload.productosStockBajo === 'number' ? payload.productosStockBajo : 0,
@@ -50,7 +49,7 @@ export default function DashboardPage() {
 
   useEffect(() => { load() }, [load])
 
-  const cabinaSeleccionada = data?.cabinas.find((cabina) => cabina.id === selectedCabinaId) ?? null
+  const atencionSeleccionada = data?.atencionesEnCurso.find((atencion) => atencion.id === atencionSeleccionadaId) ?? null
 
   const stats = [
     { label: 'Citas del día', value: String(data?.citas?.length ?? 0), tint: '#ecf8f2', color: '#1d6f50', Icon: CalendarCheck },
@@ -64,7 +63,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="card-surface p-8">
           <p className="eyebrow">Panel de control</p>
-          <h1 className="page-heading mt-3 text-3xl">Agenda y estado de cabinas</h1>
+          <h1 className="page-heading mt-3 text-3xl">Agenda y atenciones en curso</h1>
           <p className="mt-3 max-w-2xl text-slate-600">Datos reales de la operación del día.</p>
           {error && <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}. Vuelve a iniciar sesión para actualizar los datos.</p>}
         </header>
@@ -103,28 +102,51 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="card-surface">
-            <p className="text-base font-extrabold text-[#173d36]">Cabinas</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-extrabold text-[#173d36]">Atenciones en curso</p>
+              <button
+                type="button"
+                onClick={() => setCreandoAtencion(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00483f] text-white transition hover:brightness-110"
+                aria-label="Nueva atención"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
             <div className="mt-6 space-y-3">
-              {data?.cabinas?.length ? data.cabinas.map((cabina) => (
-                <CabinaCard
-                  key={cabina.id}
-                  nombre={cabina.nombre}
-                  estado={cabina.estado}
-                  atencionActual={cabina.atencionActual}
-                  onClick={() => setSelectedCabinaId(cabina.id)}
-                />
-              )) : <p className="text-sm text-slate-500">No hay cabinas registradas.</p>}
+              {data?.atencionesEnCurso?.length ? data.atencionesEnCurso.map((atencion) => (
+                <button
+                  key={atencion.id}
+                  type="button"
+                  onClick={() => setAtencionSeleccionadaId(atencion.id)}
+                  className="block w-full rounded-2xl border border-amber-100 bg-amber-50 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <p className="font-bold text-amber-900">{atencion.cliente.nombre}</p>
+                  <p className="mt-1 text-sm text-slate-600">{tratamientoActual(atencion)}</p>
+                  <p className="mt-1 text-sm text-slate-500">Desde {new Date(atencion.horaInicio).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</p>
+                </button>
+              )) : <p className="text-sm text-slate-500">No hay atenciones en curso.</p>}
             </div>
           </div>
         </section>
       </div>
 
-      {cabinaSeleccionada && (
-        <Modal title={cabinaSeleccionada.nombre} onClose={() => setSelectedCabinaId(null)}>
-          <CabinaAtencionPanel
-            cabina={cabinaSeleccionada}
-            onClose={() => setSelectedCabinaId(null)}
-            onChanged={() => { load(); setSelectedCabinaId(null) }}
+      {atencionSeleccionada && (
+        <Modal title="Atención en curso" size="lg" onClose={() => setAtencionSeleccionadaId(null)}>
+          <AtencionEnCursoPanel
+            atencion={atencionSeleccionada}
+            onClose={() => setAtencionSeleccionadaId(null)}
+            onChanged={() => load()}
+          />
+        </Modal>
+      )}
+
+      {creandoAtencion && (
+        <Modal title="Nueva atención" onClose={() => setCreandoAtencion(false)}>
+          <AtencionEnCursoPanel
+            atencion={null}
+            onClose={() => setCreandoAtencion(false)}
+            onChanged={() => { load(); setCreandoAtencion(false) }}
           />
         </Modal>
       )}

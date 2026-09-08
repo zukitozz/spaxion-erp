@@ -301,7 +301,6 @@ export default function InventarioPage() {
       {seleccionado && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
-          onClick={() => setSeleccionado(null)}
         >
           <div className="card-surface w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-4">

@@ -47,41 +47,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Cliente e items requeridos' }, { status: 400 })
   }
 
-  const atencionIds: string[] = Array.isArray(body.atencionIds)
-    ? body.atencionIds.filter((id: unknown) => typeof id === 'string')
+  const tratamientoLineIds: string[] = Array.isArray(body.tratamientoLineIds)
+    ? body.tratamientoLineIds.filter((id: unknown) => typeof id === 'string')
+    : []
+  const productoLineIds: string[] = Array.isArray(body.productoLineIds)
+    ? body.productoLineIds.filter((id: unknown) => typeof id === 'string')
     : []
 
-  const atencionesPendientes = atencionIds.length > 0
-    ? await prisma.atencionCabina.findMany({
-        where: { id: { in: atencionIds }, clienteId: body.clienteId, estado: 'FINALIZADA', facturaId: null },
-        include: {
-          tratamiento: { select: { nombre: true, precio: true } },
-          productos: { include: { producto: { select: { nombre: true } } } },
-        },
+  const lineasTratamiento = tratamientoLineIds.length > 0
+    ? await prisma.atencionTratamiento.findMany({
+        where: { id: { in: tratamientoLineIds }, atencion: { clienteId: body.clienteId }, estado: 'FINALIZADA', facturaId: null },
+        include: { tratamiento: { select: { nombre: true, precio: true } } },
       })
     : []
 
-  const itemsDeAtenciones = atencionesPendientes.flatMap((atencion) => [
-    {
+  const lineasProducto = productoLineIds.length > 0
+    ? await prisma.atencionProducto.findMany({
+        where: { id: { in: productoLineIds }, atencion: { clienteId: body.clienteId }, facturaId: null },
+        include: { producto: { select: { nombre: true } } },
+      })
+    : []
+
+  const itemsDeAtenciones = [
+    ...lineasTratamiento.map((linea) => ({
       productoId: null as string | null,
-      nombre: atencion.tratamiento.nombre,
+      nombre: linea.tratamiento.nombre,
       cantidad: 1,
-      precioUnit: atencion.tratamiento.precio,
-      total: round2(atencion.tratamiento.precio),
-    },
-    ...atencion.productos.map((item) => ({
+      precioUnit: linea.tratamiento.precio,
+      total: round2(linea.tratamiento.precio),
+    })),
+    ...lineasProducto.map((item) => ({
       productoId: item.productoId as string | null,
       nombre: item.producto.nombre,
       cantidad: item.cantidad,
       precioUnit: item.precioUnit,
       total: round2(item.cantidad * item.precioUnit),
     })),
-  ])
+  ]
 
+  // Los items manuales admiten un producto o un tratamiento (sin control de stock en este último caso).
   const itemsManuales = body.items
-    .filter((item: any) => typeof item.productoId === 'string' && item.productoId.length > 0)
+    .filter((item: any) =>
+      (typeof item.productoId === 'string' && item.productoId.length > 0) ||
+      (typeof item.tratamientoId === 'string' && item.tratamientoId.length > 0)
+    )
     .map((item: any) => ({
-      productoId: item.productoId,
+      productoId: typeof item.productoId === 'string' && item.productoId.length > 0 ? item.productoId : null,
       nombre: item.nombre,
       cantidad: Number(item.cantidad) || 0,
       precioUnit: Number(item.precioUnit) || 0,
@@ -193,9 +204,15 @@ export async function POST(req: Request) {
       include: { cliente: true, items: true, descuento: true },
     })
 
-    if (atencionesPendientes.length > 0) {
-      await tx.atencionCabina.updateMany({
-        where: { id: { in: atencionesPendientes.map((atencion) => atencion.id) } },
+    if (lineasTratamiento.length > 0) {
+      await tx.atencionTratamiento.updateMany({
+        where: { id: { in: lineasTratamiento.map((linea) => linea.id) } },
+        data: { facturaId: creada.id },
+      })
+    }
+    if (lineasProducto.length > 0) {
+      await tx.atencionProducto.updateMany({
+        where: { id: { in: lineasProducto.map((linea) => linea.id) } },
         data: { facturaId: creada.id },
       })
     }

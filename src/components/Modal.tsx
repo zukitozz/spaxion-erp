@@ -1,28 +1,23 @@
 'use client'
 
-import { useEffect } from 'react'
+type ModalSize = 'sm' | 'lg'
 
 interface ModalProps {
   title: string
   onClose: () => void
+  size?: ModalSize
   children: React.ReactNode
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+const sizeStyles: Record<ModalSize, string> = {
+  sm: 'max-w-lg',
+  lg: 'max-w-5xl',
+}
 
+export function Modal({ title, onClose, size = 'sm', children }: ModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8" onClick={onClose}>
-      <div
-        className="card-surface max-h-full w-full max-w-lg overflow-y-auto"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-8">
+      <div className={`card-surface max-h-full w-full overflow-y-auto ${sizeStyles[size]}`}>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-emerald-900">{title}</h2>
           <button

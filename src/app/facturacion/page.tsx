@@ -22,9 +22,17 @@ interface Producto {
   stock: number
 }
 
+interface Tratamiento {
+  id: string
+  nombre: string
+  precio: number
+  activo: boolean
+}
+
 interface FacturaItemForm {
   id: string
   productoId: string
+  tratamientoId: string
   nombre: string
   cantidad: number
   precioUnit: number
@@ -61,19 +69,25 @@ interface PendienteProducto {
   producto: { id: string; nombre: string }
 }
 
+interface PendienteTratamiento {
+  id: string
+  nombre: string
+  precio: number
+}
+
 interface Pendiente {
   id: string
   horaInicio: string
-  cabina: { id: string; nombre: string }
-  tratamiento: { id: string; nombre: string; precio: number }
-  esteticista: { id: string; name: string }
+  cabina: { id: string; nombre: string } | null
+  tratamientos: PendienteTratamiento[]
   productos: PendienteProducto[]
 }
 
-const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', nombre: '', cantidad: 1, precioUnit: 0 })
+const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', tratamientoId: '', nombre: '', cantidad: 1, precioUnit: 0 })
 
 const totalPendiente = (pendiente: Pendiente) =>
-  pendiente.tratamiento.precio + pendiente.productos.reduce((sum, item) => sum + item.cantidad * item.precioUnit, 0)
+  pendiente.tratamientos.reduce((sum, item) => sum + item.precio, 0) +
+  pendiente.productos.reduce((sum, item) => sum + item.cantidad * item.precioUnit, 0)
 
 function FacturacionContent() {
   const router = useRouter()
@@ -86,6 +100,7 @@ function FacturacionContent() {
 
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
+  const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,7 +123,7 @@ function FacturacionContent() {
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoDocumento: 'DNI' as 'DNI' | 'RUC', numeroDocumento: '' })
   const [creandoCliente, setCreandoCliente] = useState(false)
 
-  const itemsValidos = useMemo(() => form.items.filter((item) => item.productoId), [form.items])
+  const itemsValidos = useMemo(() => form.items.filter((item) => item.productoId || item.tratamientoId), [form.items])
 
   const subtotalPendientes = useMemo(() => pendientes.reduce((sum, pendiente) => sum + totalPendiente(pendiente), 0), [pendientes])
   const subtotalManual = useMemo(
@@ -207,20 +222,23 @@ function FacturacionContent() {
   )
 
   const loadData = async () => {
-    const [clientesRes, productosRes, facturasRes] = await Promise.all([
+    const [clientesRes, productosRes, tratamientosRes, facturasRes] = await Promise.all([
       fetch('/api/clientes'),
       fetch('/api/productos'),
+      fetch('/api/tratamientos'),
       fetch('/api/facturacion'),
     ])
 
-    const [clientesData, productosData, facturasData] = await Promise.all([
+    const [clientesData, productosData, tratamientosData, facturasData] = await Promise.all([
       clientesRes.json(),
       productosRes.json(),
+      tratamientosRes.json(),
       facturasRes.json(),
     ])
 
     setClientes(Array.isArray(clientesData) ? clientesData : [])
     setProductos(Array.isArray(productosData) ? productosData : [])
+    setTratamientos(Array.isArray(tratamientosData) ? tratamientosData.filter((t: Tratamiento) => t.activo) : [])
     setFacturas(Array.isArray(facturasData) ? facturasData : [])
     setLoading(false)
   }
@@ -299,9 +317,19 @@ function FacturacionContent() {
     }))
   }
 
-  const selectProduct = (index: number, productoId: string) => {
-    const producto = productos.find((item) => item.id === productoId)
-    updateItem(index, { productoId, nombre: producto?.nombre || '', precioUnit: producto?.precioVenta || 0 })
+  const selectItem = (index: number, value: string) => {
+    if (!value) {
+      updateItem(index, { productoId: '', tratamientoId: '', nombre: '', precioUnit: 0 })
+      return
+    }
+    const [tipo, id] = value.split(':')
+    if (tipo === 'p') {
+      const producto = productos.find((item) => item.id === id)
+      updateItem(index, { productoId: id, tratamientoId: '', nombre: producto?.nombre || '', precioUnit: producto?.precioVenta || 0 })
+    } else {
+      const tratamiento = tratamientos.find((item) => item.id === id)
+      updateItem(index, { productoId: '', tratamientoId: id, nombre: tratamiento?.nombre || '', precioUnit: tratamiento?.precio || 0 })
+    }
   }
 
   const handleAddItem = () => {
@@ -335,7 +363,8 @@ function FacturacionContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         clienteId: form.clienteId,
-        atencionIds: pendientes.map((pendiente) => pendiente.id),
+        tratamientoLineIds: pendientes.flatMap((pendiente) => pendiente.tratamientos.map((t) => t.id)),
+        productoLineIds: pendientes.flatMap((pendiente) => pendiente.productos.map((p) => p.id)),
         tipo: form.tipo,
         metodoPago: form.metodoPago,
         montoDescuento,
@@ -366,7 +395,7 @@ function FacturacionContent() {
     if (!atencionDestino) return
     setGuardandoPendiente(true)
 
-    for (const item of itemsValidos) {
+    for (const item of itemsValidos.filter((item) => item.productoId)) {
       const response = await fetch(`/api/atenciones/${atencionDestino}/productos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -397,7 +426,6 @@ function FacturacionContent() {
           {mostrarFormulario && (
             <div
               className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-8"
-              onClick={() => setMostrarFormulario(false)}
             >
               <div className="card-surface w-full max-w-3xl" onClick={(event) => event.stopPropagation()}>
                 <div className="flex items-center justify-between gap-4">
@@ -513,13 +541,16 @@ function FacturacionContent() {
                   <div className="mt-3 space-y-3">
                     {pendientes.map((pendiente) => (
                       <div key={pendiente.id} className="rounded-2xl bg-white p-3">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="font-medium text-slate-900">{pendiente.tratamiento.nombre}</span>
-                          <span className="text-slate-600">S/ {pendiente.tratamiento.precio.toFixed(2)}</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {new Date(pendiente.horaInicio).toLocaleString('es-PE')} · Cabina {pendiente.cabina.nombre} · {pendiente.esteticista.name}
+                        <p className="text-xs text-slate-500">
+                          {new Date(pendiente.horaInicio).toLocaleString('es-PE')}
+                          {pendiente.cabina ? ` · Cabina ${pendiente.cabina.nombre}` : ''}
                         </p>
+                        {pendiente.tratamientos.map((item) => (
+                          <div key={item.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
+                            <span className="font-medium text-slate-900">{item.nombre}</span>
+                            <span className="text-slate-600">S/ {item.precio.toFixed(2)}</span>
+                          </div>
+                        ))}
                         {pendiente.productos.map((item) => (
                           <div key={item.id} className="mt-2 flex items-center justify-between text-xs text-slate-500">
                             <span>{item.producto.nombre} × {item.cantidad}</span>
@@ -575,10 +606,20 @@ function FacturacionContent() {
                     <div key={item.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                       <div className="grid gap-4 sm:grid-cols-[1.2fr_0.9fr_0.9fr]">
                         <div>
-                          <label htmlFor={`factura-item-${item.id}-producto`} className="block text-sm font-medium text-slate-700">Producto</label>
-                          <select id={`factura-item-${item.id}-producto`} value={item.productoId} onChange={(event) => selectProduct(index, event.target.value)} className="field mt-2 bg-white">
-                            <option value="">Servicio / item manual</option>
-                            {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre} · stock {producto.stock}</option>)}
+                          <label htmlFor={`factura-item-${item.id}-producto`} className="block text-sm font-medium text-slate-700">Producto o tratamiento</label>
+                          <select
+                            id={`factura-item-${item.id}-producto`}
+                            value={item.productoId ? `p:${item.productoId}` : item.tratamientoId ? `t:${item.tratamientoId}` : ''}
+                            onChange={(event) => selectItem(index, event.target.value)}
+                            className="field mt-2 bg-white"
+                          >
+                            <option value="">Item manual</option>
+                            <optgroup label="Productos">
+                              {productos.map((producto) => <option key={producto.id} value={`p:${producto.id}`}>{producto.nombre} · stock {producto.stock}</option>)}
+                            </optgroup>
+                            <optgroup label="Tratamientos">
+                              {tratamientos.map((tratamiento) => <option key={tratamiento.id} value={`t:${tratamiento.id}`}>{tratamiento.nombre}</option>)}
+                            </optgroup>
                           </select>
                         </div>
                         <div>

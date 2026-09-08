@@ -1,18 +1,23 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/BrandLogo'
+import { prisma } from '@/lib/prisma'
 
-const cards = [
-  { title: 'Dashboard', href: '/dashboard', description: 'Resumen diario y agenda de cabinas' },
-  { title: 'Clientes', href: '/clientes', description: 'Buscar clientes y ver historial' },
-  { title: 'Cabinas', href: '/cabinas', description: 'Visualizar estado de cabinas y asignar tratamientos' },
-  { title: 'Inventario', href: '/inventario', description: 'Control de stock y alertas de reabastecimiento' },
-  { title: 'Facturación', href: '/facturacion', description: 'Cobros, boletas y facturas' },
-  { title: 'Descuentos', href: '/descuentos', description: 'Promociones y códigos de descuento' },
-  { title: 'Reportes', href: '/reportes', description: 'Cierres de turno y métricas' },
-  { title: 'Ajustes', href: '/ajustes', description: 'Configuración de API y Google Calendar' },
-]
+export default async function Home() {
+  const configuracion = await prisma.configuracion.findUnique({ where: { id: 'default' }, select: { usaCabinas: true } })
 
-export default function Home() {
+  const cards = [
+    { title: 'Dashboard', href: '/dashboard', description: 'Resumen diario y atenciones en curso' },
+    { title: 'Clientes', href: '/clientes', description: 'Buscar clientes y ver historial' },
+    ...(configuracion?.usaCabinas
+      ? [{ title: 'Cabinas', href: '/cabinas', description: 'Visualizar estado de cabinas y asignar tratamientos' }]
+      : []),
+    { title: 'Inventario', href: '/inventario', description: 'Control de stock y alertas de reabastecimiento' },
+    { title: 'Facturación', href: '/facturacion', description: 'Cobros, boletas y facturas' },
+    { title: 'Descuentos', href: '/descuentos', description: 'Promociones y códigos de descuento' },
+    { title: 'Reportes', href: '/reportes', description: 'Cierres de turno y métricas' },
+    { title: 'Ajustes', href: '/ajustes', description: 'Configuración de API y Google Calendar' },
+  ]
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#fbfaf6] px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-7xl">
@@ -24,7 +29,9 @@ export default function Home() {
               <BrandLogo />
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#00665b]">Spaxión Centro Estético · Operaciones</p>
               <h1 className="mt-4 max-w-xl font-serif text-4xl font-semibold leading-[1.05] text-[#00483f] sm:text-6xl">Bienestar que también se administra con calma.</h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-[#486b60]">Una vista serena para coordinar clientes, cabinas, tratamientos, inventario y cobros durante cada jornada.</p>
+              <p className="mt-5 max-w-xl text-base leading-7 text-[#486b60]">
+                Una vista serena para coordinar clientes, tratamientos{configuracion?.usaCabinas ? ', cabinas' : ''}, inventario y cobros durante cada jornada.
+              </p>
               <Link href="/dashboard" className="btn-brand mt-7">Abrir operación <span className="ml-2">→</span></Link>
             </div>
             <div className="relative grid min-h-56 w-full max-w-md grid-cols-2 gap-4 sm:min-h-64">

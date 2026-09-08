@@ -11,6 +11,7 @@ interface Settings {
   facturacionEndpoint: string | null
   facturacionActivo: boolean
   horasExpiracionCita: number
+  usaCabinas: boolean
 }
 
 const initialSettings: Settings = {
@@ -21,6 +22,7 @@ const initialSettings: Settings = {
   facturacionEndpoint: '',
   facturacionActivo: false,
   horasExpiracionCita: 24,
+  usaCabinas: true,
 }
 
 export default function AjustesPage() {
@@ -89,6 +91,11 @@ export default function AjustesPage() {
             <label htmlFor="calendar-id" className="text-sm font-medium text-slate-700">ID del calendario</label>
             <input id="calendar-id" value={settings.googleCalendarId || ''} onChange={(e) => setSettings({ ...settings, googleCalendarId: e.target.value })} className="field" placeholder="correo o ID del calendario (vacío = calendario principal)" />
             <label className="flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={settings.googleCalendarActivo} onChange={(e) => setSettings({ ...settings, googleCalendarActivo: e.target.checked })} /> Activar sincronización</label>
+          </div>
+          <div className="card-surface space-y-4">
+            <h2 className="text-xl font-semibold text-emerald-900">Cabinas físicas</h2>
+            <p className="text-sm text-slate-600">Actívalo solo si el local cuenta con cabinas físicas que deben reservarse para cada atención. Si está apagado, las atenciones se registran directamente sobre el paciente.</p>
+            <label className="flex items-center gap-3 text-sm text-slate-700"><input type="checkbox" checked={settings.usaCabinas} onChange={(e) => setSettings({ ...settings, usaCabinas: e.target.checked })} /> Usar cabinas físicas</label>
           </div>
           <div className="card-surface space-y-4">
             <h2 className="text-xl font-semibold text-emerald-900">Vigencia de citas</h2>

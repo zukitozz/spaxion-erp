@@ -27,6 +27,7 @@ export async function PUT(req: Request) {
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
       horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
+      usaCabinas: Boolean(body.usaCabinas),
     },
     create: {
       id: 'default',
@@ -36,6 +37,7 @@ export async function PUT(req: Request) {
       facturacionEndpoint: body.facturacionEndpoint || null,
       facturacionActivo: Boolean(body.facturacionActivo),
       horasExpiracionCita: Math.max(1, Number(body.horasExpiracionCita) || 24),
+      usaCabinas: body.usaCabinas === undefined ? true : Boolean(body.usaCabinas),
     },
   })
 
