@@ -21,12 +21,26 @@ interface Atencion {
   horaFin: string | null
   notas: string | null
   estado: 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
+  // Precio acordado al asignar el tratamiento a la visita (si no se cambió, coincide con el
+  // precio de catálogo) y el precio de catálogo capturado en ese momento, para evidenciar cambios.
+  precio: number | null
+  precioCatalogo: number | null
   cabina: Cabina | null
   cliente: Cliente
   tratamiento: { id: string; nombre: string; duracionMin: number; precio: number }
   esteticista: Esteticista
   cita: { id: string; fecha: string } | null
   fotos: Foto[]
+}
+
+/** true si el precio acordado difiere del precio de catálogo capturado en ese momento. */
+function precioFueModificado(atencion: Pick<Atencion, 'precio' | 'precioCatalogo'>) {
+  if (atencion.precio == null || atencion.precioCatalogo == null) return false
+  return Math.abs(atencion.precio - atencion.precioCatalogo) > 0.005
+}
+
+function costoAtencion(atencion: Atencion) {
+  return atencion.precio ?? atencion.tratamiento.precio
 }
 
 const estadoLabels: Record<Atencion['estado'], string> = {
@@ -72,7 +86,17 @@ function DetalleAtencion({ atencion, onClose }: { atencion: Atencion; onClose: (
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Tratamiento</p><p className="text-sm font-semibold text-slate-900">{atencion.tratamiento.nombre}</p></div>
-          <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Costo</p><p className="text-sm font-semibold text-slate-900">S/ {atencion.tratamiento.precio.toFixed(2)}</p></div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Costo</p>
+            <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              S/ {costoAtencion(atencion).toFixed(2)}
+              {precioFueModificado(atencion) && (
+                <span title={`Precio de catálogo: S/ ${atencion.precioCatalogo!.toFixed(2)}`} className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                  Precio modificado
+                </span>
+              )}
+            </p>
+          </div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Cabina</p><p className="text-sm text-slate-700">{atencion.cabina?.nombre ?? 'Sin cabina'}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Esteticista</p><p className="text-sm text-slate-700">{atencion.esteticista.name}</p></div>
           <div><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Inicio</p><p className="text-sm text-slate-700">{new Date(atencion.horaInicio).toLocaleString('es-PE')}</p></div>
@@ -356,7 +380,14 @@ function HistoricoAtencionesContent() {
                           <td className="py-3 pr-4">{new Date(atencion.horaInicio).toLocaleString('es-PE')}</td>
                           <td className="py-3 pr-4 font-medium text-slate-900">{atencion.cliente.nombre}</td>
                           <td className="py-3 pr-4">{atencion.tratamiento.nombre}</td>
-                          <td className="py-3 pr-4">S/ {atencion.tratamiento.precio.toFixed(2)}</td>
+                          <td className="py-3 pr-4">
+                            S/ {costoAtencion(atencion).toFixed(2)}
+                            {precioFueModificado(atencion) && (
+                              <span title={`Precio de catálogo: S/ ${atencion.precioCatalogo!.toFixed(2)}`} className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                Modificado
+                              </span>
+                            )}
+                          </td>
                           <td className="py-3 pr-4">{atencion.esteticista.name}</td>
                           <td className="py-3 pr-4">
                             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900">{estadoLabels[atencion.estado]}</span>

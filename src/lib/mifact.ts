@@ -47,8 +47,8 @@ function construirItem(item: FacturaItem & { producto?: { codigoBarras: string |
 }
 
 /**
- * Catálogo 06 SUNAT (tipo de documento de identidad): 1=DNI, 6=RUC.
- * Una Factura exige RUC; una Boleta acepta DNI o RUC.
+ * Catálogo 06 SUNAT (tipo de documento de identidad): 1=DNI, 4=Carnet de Extranjería, 6=RUC.
+ * Una Factura exige RUC; una Boleta acepta DNI, Carnet de Extranjería o RUC.
  */
 function datosReceptor(cliente: Cliente, tipoComprobante: string) {
   if (cliente.ruc) {
@@ -60,7 +60,10 @@ function datosReceptor(cliente: Cliente, tipoComprobante: string) {
   if (cliente.dni) {
     return { COD_TIP_NIF_RECP: '1', NUM_NIF_RECP: cliente.dni, NOM_RZN_SOC_RECP: cliente.nombre }
   }
-  throw new Error('El cliente no tiene DNI ni RUC registrado, requerido para emitir el comprobante')
+  if (cliente.carnetExtranjeria) {
+    return { COD_TIP_NIF_RECP: '4', NUM_NIF_RECP: cliente.carnetExtranjeria, NOM_RZN_SOC_RECP: cliente.nombre }
+  }
+  throw new Error('El cliente no tiene DNI, Carnet de Extranjería ni RUC registrado, requerido para emitir el comprobante')
 }
 
 export interface FacturaParaEnvio extends Factura {

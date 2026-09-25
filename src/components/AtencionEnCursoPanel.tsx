@@ -10,12 +10,12 @@ import { useToast } from '@/components/Toast'
 type LineaEstado = 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
 
 interface Cliente { id: string; nombre: string }
-interface Tratamiento { id: string; nombre: string; activo: boolean; diasProximoTratamiento?: number | null }
+interface Tratamiento { id: string; nombre: string; precio: number; activo: boolean; diasProximoTratamiento?: number | null }
 interface Esteticista { id: string; name: string }
 interface CitaPendiente { id: string; fecha: string; tratamiento: string; estado: string; registrado: boolean; cliente: Cliente | null }
 interface Configuracion { horasExpiracionCita: number }
 interface Producto { id: string; nombre: string; precioVenta: number; stock: number }
-interface AtencionProductoItem { id: string; cantidad: number; precioUnit: number; producto: { id: string; nombre: string } }
+interface AtencionProductoItem { id: string; cantidad: number; precioUnit: number; precioCatalogo: number | null; producto: { id: string; nombre: string } }
 
 interface LineaTratamiento {
   id: string
@@ -23,8 +23,16 @@ interface LineaTratamiento {
   horaInicio: string | null
   horaFin: string | null
   diasProximoTratamiento: number | null
+  precio: number | null
+  precioCatalogo: number | null
   tratamiento: { id: string; nombre: string; diasProximoTratamiento?: number | null }
   esteticista: { id: string; name: string }
+}
+
+/** true si el precio acordado difiere del precio de catálogo capturado en ese momento. */
+function precioFueModificado(precio: number | null, precioCatalogo: number | null) {
+  if (precio == null || precioCatalogo == null) return false
+  return Math.abs(precio - precioCatalogo) > 0.005
 }
 
 export interface AtencionDetalle {
@@ -86,7 +94,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
 
   // --- Formulario para crear una atención nueva (sin cabina) ---
   const [modo, setModo] = useState<'walkin' | 'cita'>('walkin')
-  const [form, setForm] = useState({ clienteId: '', tratamientoId: '', esteticistaId: '', citaId: '', notas: '' })
+  const [form, setForm] = useState({ clienteId: '', tratamientoId: '', esteticistaId: '', citaId: '', notas: '', precio: '' })
   const [clienteQuery, setClienteQuery] = useState('')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const [tratamientoQuery, setTratamientoQuery] = useState('')
@@ -96,7 +104,9 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
   const [nuevoItemValue, setNuevoItemValue] = useState('') // 't:<tratamientoId>' | 'p:<productoId>' | ''
   const [nuevoEsteticistaId, setNuevoEsteticistaId] = useState('')
   const [nuevaCantidad, setNuevaCantidad] = useState(1)
+  const [nuevoPrecio, setNuevoPrecio] = useState('')
   const [agregandoItem, setAgregandoItem] = useState(false)
+  const puedeCambiarPrecio = rol === 'ADMIN' || rol === 'SUPERVISOR'
   const [productos, setProductos] = useState<Producto[]>([])
   const [productosAtencion, setProductosAtencion] = useState<AtencionProductoItem[]>([])
 
@@ -185,6 +195,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
         citaId: modo === 'cita' ? form.citaId || null : null,
         notas: form.notas || null,
         cabinaId: cabinaId || null,
+        ...(puedeCambiarPrecio && form.precio !== '' ? { precio: Number(form.precio) } : {}),
       }),
     })
     setSaving(false)
@@ -255,7 +266,11 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
       const response = await fetch(`/api/atenciones/${atencion.id}/tratamientos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tratamientoId: idNuevoItem, esteticistaId: nuevoEsteticistaId }),
+        body: JSON.stringify({
+          tratamientoId: idNuevoItem,
+          esteticistaId: nuevoEsteticistaId,
+          ...(puedeCambiarPrecio && nuevoPrecio !== '' ? { precio: Number(nuevoPrecio) } : {}),
+        }),
       })
       setAgregandoItem(false)
       if (!response.ok) {
@@ -265,6 +280,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
       }
       setNuevoItemValue('')
       setNuevoEsteticistaId('')
+      setNuevoPrecio('')
       toast.success('Tratamiento agregado')
       onChanged()
       return
@@ -276,7 +292,11 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
     const response = await fetch(`/api/atenciones/${atencion.id}/productos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productoId: idNuevoItem, cantidad: nuevaCantidad }),
+      body: JSON.stringify({
+        productoId: idNuevoItem,
+        cantidad: nuevaCantidad,
+        ...(puedeCambiarPrecio && nuevoPrecio !== '' ? { precioUnit: Number(nuevoPrecio) } : {}),
+      }),
     })
     setAgregandoItem(false)
     if (!response.ok) {
@@ -286,6 +306,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
     }
     setNuevoItemValue('')
     setNuevaCantidad(1)
+    setNuevoPrecio('')
     cargarProductosAtencion()
     toast.success('Producto agregado')
   }
@@ -371,27 +392,44 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                   key={tratamiento.id}
                   type="button"
                   onMouseDown={() => {
-                    setForm((prev) => ({ ...prev, tratamientoId: tratamiento.id }))
+                    setForm((prev) => ({ ...prev, tratamientoId: tratamiento.id, precio: String(tratamiento.precio) }))
                     setTratamientoQuery(tratamiento.nombre)
                     setShowTratamientoDropdown(false)
                   }}
                   className="block w-full px-4 py-2.5 text-left text-sm hover:bg-[#ecf8f2]"
                 >
-                  {tratamiento.nombre}
+                  {tratamiento.nombre} · S/ {tratamiento.precio.toFixed(2)}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Esteticista</label>
-          <select value={form.esteticistaId} onChange={(e) => setForm((prev) => ({ ...prev, esteticistaId: e.target.value }))} className="field mt-2">
-            <option value="">Selecciona esteticista</option>
-            {esteticistas.map((esteticista) => (
-              <option key={esteticista.id} value={esteticista.id}>{esteticista.name}</option>
-            ))}
-          </select>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Esteticista</label>
+            <select value={form.esteticistaId} onChange={(e) => setForm((prev) => ({ ...prev, esteticistaId: e.target.value }))} className="field mt-2">
+              <option value="">Selecciona esteticista</option>
+              {esteticistas.map((esteticista) => (
+                <option key={esteticista.id} value={esteticista.id}>{esteticista.name}</option>
+              ))}
+            </select>
+          </div>
+          {form.tratamientoId && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Precio</label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={form.precio}
+                disabled={!puedeCambiarPrecio}
+                onChange={(e) => setForm((prev) => ({ ...prev, precio: e.target.value }))}
+                title={!puedeCambiarPrecio ? 'Solo un ADMIN o SUPERVISOR puede cambiar el precio de catálogo' : 'Precio acordado con el cliente'}
+                className="field mt-2 disabled:bg-slate-100 disabled:text-slate-500"
+              />
+            </div>
+          )}
         </div>
 
         <div>
@@ -436,6 +474,17 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                   </div>
                   <p className={`mt-1.5 font-semibold leading-snug ${inactiva ? 'text-slate-500' : 'text-[#173d36]'}`}>{linea.tratamiento.nombre}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{linea.esteticista.name}</p>
+                  {linea.precio != null && (
+                    <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                      <span>S/ {linea.precio.toFixed(2)}</span>
+                      {precioFueModificado(linea.precio, linea.precioCatalogo) && (
+                        <span
+                          title={`Precio de catálogo: S/ ${linea.precioCatalogo!.toFixed(2)}`}
+                          className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                        >Precio modificado</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex w-28 shrink-0 flex-col gap-1.5">
@@ -485,16 +534,24 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
               <select
                 value={nuevoItemValue}
                 onChange={(e) => {
-                  setNuevoItemValue(e.target.value)
+                  const value = e.target.value
+                  setNuevoItemValue(value)
                   setNuevoEsteticistaId('')
                   setNuevaCantidad(1)
+                  const [tipo, id] = value ? (value.split(':') as [string, string]) : ['', '']
+                  const precioCatalogo = tipo === 't'
+                    ? tratamientos.find((t) => t.id === id)?.precio
+                    : tipo === 'p'
+                      ? productos.find((p) => p.id === id)?.precioVenta
+                      : undefined
+                  setNuevoPrecio(precioCatalogo != null ? String(precioCatalogo) : '')
                 }}
                 className="field !mt-1"
               >
                 <option value="">Selecciona...</option>
                 <optgroup label="Tratamientos">
                   {tratamientos.map((tratamiento) => (
-                    <option key={tratamiento.id} value={`t:${tratamiento.id}`}>{tratamiento.nombre}</option>
+                    <option key={tratamiento.id} value={`t:${tratamiento.id}`}>{tratamiento.nombre} · S/ {tratamiento.precio.toFixed(2)}</option>
                   ))}
                 </optgroup>
                 <optgroup label="Productos">
@@ -521,6 +578,21 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                 <input type="number" min={1} value={nuevaCantidad} onChange={(e) => setNuevaCantidad(Number(e.target.value) || 1)} className="field !mt-1" />
               </div>
             )}
+            {idNuevoItem && (
+              <div className="w-28">
+                <label className="block text-xs font-medium text-slate-700">Precio</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={nuevoPrecio}
+                  disabled={!puedeCambiarPrecio}
+                  onChange={(e) => setNuevoPrecio(e.target.value)}
+                  title={!puedeCambiarPrecio ? 'Solo un ADMIN o SUPERVISOR puede cambiar el precio de catálogo' : 'Precio acordado con el cliente'}
+                  className="field !mt-1 disabled:bg-slate-100 disabled:text-slate-500"
+                />
+              </div>
+            )}
             <button
               type="button"
               disabled={agregandoItem || !idNuevoItem || (tipoNuevoItem === 't' && !nuevoEsteticistaId)}
@@ -541,7 +613,15 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
           <div className="mt-2 space-y-1.5">
             {productosAtencion.map((item) => (
               <div key={item.id} className="flex items-center justify-between gap-3 text-sm text-slate-600">
-                <span className="min-w-0 truncate">{item.producto.nombre} × {item.cantidad}</span>
+                <span className="min-w-0 truncate">
+                  {item.producto.nombre} × {item.cantidad}
+                  {precioFueModificado(item.precioUnit, item.precioCatalogo) && (
+                    <span
+                      title={`Precio de catálogo: S/ ${item.precioCatalogo!.toFixed(2)}`}
+                      className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"
+                    >Precio modificado</span>
+                  )}
+                </span>
                 <span className="shrink-0">S/ {(item.cantidad * item.precioUnit).toFixed(2)}</span>
               </div>
             ))}

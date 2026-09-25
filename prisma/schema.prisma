@@ -34,6 +34,7 @@ model Cliente {
   nombre                     String
   dni                        String?    @unique
   ruc                        String?    @unique
+  carnetExtranjeria          String?    @unique
   razonSocial                String?
   celular                    String?
   distrito                   String?
@@ -145,6 +146,10 @@ model AtencionTratamiento {
   notas                  String?
   diasProximoTratamiento Int?
   orden                  Int            @default(0)
+  // Precio acordado al asignar el tratamiento a la visita (puede diferir del catálogo).
+  // precioCatalogo guarda el precio del Tratamiento en ese momento, para poder comparar después.
+  precio                 Float?
+  precioCatalogo         Float?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
@@ -165,6 +170,9 @@ model AtencionProducto {
   productoId String
   cantidad   Int      @default(1)
   precioUnit Float
+  // Precio del catálogo (Producto.precioVenta) en el momento en que se agregó, para poder
+  // evidenciar si precioUnit fue modificado respecto al catálogo.
+  precioCatalogo Float?
   creadoAt   DateTime @default(now())
 
   factura   Factura? @relation(fields: [facturaId], references: [id])
@@ -281,9 +289,6 @@ model Factura {
   metodoPago           MetodoPago
   estado               String
   activo               Boolean               @default(true)
-  descuentoAplicado    Float?                @default(0)
-  descuento            Descuento?            @relation(fields: [descuentoId], references: [id])
-  descuentoId          String?
   creadoAt             DateTime              @default(now())
   items                FacturaItem[]
   atencionTratamientos AtencionTratamiento[]
@@ -335,24 +340,6 @@ enum FacturaTipo {
   NOTA_VENTA
 }
 
-model Descuento {
-  id          String        @id @default(uuid())
-  codigo      String        @unique
-  descripcion String?
-  tipo        DescuentoTipo @default(PORCENTAJE)
-  valor       Float
-  activo      Boolean       @default(true)
-  fechaInicio DateTime?
-  fechaFin    DateTime?
-  facturas    Factura[]
-  createdAt   DateTime      @default(now())
-}
-
-enum DescuentoTipo {
-  PORCENTAJE
-  FIJO
-}
-
 enum MetodoPago {
   EFECTIVO
   TARJETA
@@ -370,6 +357,9 @@ model FacturaItem {
   cantidad       Int
   precioUnit     Float
   total          Float
+  // Precio del catálogo (Tratamiento.precio / Producto.precioVenta) al momento de facturar.
+  // Se compara contra precioUnit para evidenciar un cambio de precio base en los reportes.
+  precioCatalogo Float?
   codigoProducto String?
   igv            Float?
   decCantidad    Float?

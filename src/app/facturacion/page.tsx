@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Fragment, Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { Spinner } from '@/components/Spinner'
@@ -44,6 +44,7 @@ interface FacturaItem {
   cantidad: number
   precioUnit: number
   total: number
+  precioCatalogo: number | null
 }
 
 interface Factura {
@@ -53,7 +54,6 @@ interface Factura {
   total: number
   metodoPago: string
   estado: string
-  descuentoAplicado: number | null
   items: FacturaItem[]
   numeracionComprobante: string | null
   enviado: boolean
@@ -66,6 +66,7 @@ interface PendienteProducto {
   id: string
   cantidad: number
   precioUnit: number
+  precioCatalogo: number
   producto: { id: string; nombre: string }
 }
 
@@ -73,6 +74,7 @@ interface PendienteTratamiento {
   id: string
   nombre: string
   precio: number
+  precioCatalogo: number
 }
 
 interface Pendiente {
@@ -85,9 +87,10 @@ interface Pendiente {
 
 const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', tratamientoId: '', nombre: '', cantidad: 1, precioUnit: 0 })
 
-const totalPendiente = (pendiente: Pendiente) =>
-  pendiente.tratamientos.reduce((sum, item) => sum + item.precio, 0) +
-  pendiente.productos.reduce((sum, item) => sum + item.cantidad * item.precioUnit, 0)
+/** true si el precio acordado difiere del precio de catálogo (no es un descuento, es un cambio de precio base). */
+function precioFueModificado(precio: number, precioCatalogo: number) {
+  return Math.abs(precio - precioCatalogo) > 0.005
+}
 
 function FacturacionContent() {
   const router = useRouter()
@@ -113,31 +116,50 @@ function FacturacionContent() {
     metodoPago: 'EFECTIVO',
     items: [createInitialItem()],
   })
-  const [descuentoInput, setDescuentoInput] = useState('')
   const [busquedaFactura, setBusquedaFactura] = useState('')
   const [paginaFactura, setPaginaFactura] = useState(1)
 
   const [clienteQuery, setClienteQuery] = useState('')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
   const [nuevoClienteAbierto, setNuevoClienteAbierto] = useState(false)
-  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoDocumento: 'DNI' as 'DNI' | 'RUC', numeroDocumento: '' })
+  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoDocumento: 'DNI' as 'DNI' | 'RUC' | 'CE', numeroDocumento: '' })
   const [creandoCliente, setCreandoCliente] = useState(false)
+
+  // Precio editado en caja para una línea pendiente puntual (tratamiento o producto ya
+  // registrado en la atención). Si no se toca, se cobra el precio acordado al asignarlo.
+  const [preciosTratamientoOverride, setPreciosTratamientoOverride] = useState<Record<string, string>>({})
+  const [preciosProductoOverride, setPreciosProductoOverride] = useState<Record<string, string>>({})
+  const [facturaExpandida, setFacturaExpandida] = useState<string | null>(null)
 
   const itemsValidos = useMemo(() => form.items.filter((item) => item.productoId || item.tratamientoId), [form.items])
 
-  const subtotalPendientes = useMemo(() => pendientes.reduce((sum, pendiente) => sum + totalPendiente(pendiente), 0), [pendientes])
+  const precioTratamientoEfectivo = (linea: PendienteTratamiento) => {
+    const override = preciosTratamientoOverride[linea.id]
+    return override !== undefined && override !== '' ? Number(override) || 0 : linea.precio
+  }
+  const precioProductoEfectivo = (item: PendienteProducto) => {
+    const override = preciosProductoOverride[item.id]
+    return override !== undefined && override !== '' ? Number(override) || 0 : item.precioUnit
+  }
+
+  const subtotalPendientes = useMemo(
+    () =>
+      pendientes.reduce(
+        (sum, pendiente) =>
+          sum +
+          pendiente.tratamientos.reduce((s, item) => s + precioTratamientoEfectivo(item), 0) +
+          pendiente.productos.reduce((s, item) => s + item.cantidad * precioProductoEfectivo(item), 0),
+        0,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pendientes, preciosTratamientoOverride, preciosProductoOverride],
+  )
   const subtotalManual = useMemo(
     () => itemsValidos.reduce((sum, item) => sum + item.cantidad * item.precioUnit, 0),
     [itemsValidos],
   )
   const subtotal = subtotalPendientes + subtotalManual
-
-  const montoDescuento = useMemo(() => {
-    const valor = Math.max(0, Number(descuentoInput) || 0)
-    return Math.min(Math.round(valor * 100) / 100, subtotal)
-  }, [descuentoInput, subtotal])
-
-  const total = Math.max(0, subtotal - montoDescuento)
+  const total = subtotal
 
   const clientesFiltrados = useMemo(() => {
     const query = clienteQuery.trim().toLowerCase()
@@ -182,40 +204,96 @@ function FacturacionContent() {
           </tr>
         </thead>
         <tbody>
-          {facturasPagina.map((factura) => (
-            <tr key={factura.id} className="border-t border-[#eef1ec]">
-              <td className="py-3 pr-4 whitespace-nowrap text-slate-600">
-                {factura.fechaHora ? new Date(factura.fechaHora).toLocaleString('es-PE') : '—'}
-              </td>
-              <td className="py-3 pr-4 font-semibold text-[#173d36]">
-                <ClienteHistorialLink clienteId={factura.cliente.id} nombre={factura.cliente.nombre} className="hover:text-emerald-700" />
-              </td>
-              <td className="py-3 pr-4 text-slate-600">{factura.tipo}</td>
-              <td className="py-3 pr-4 text-slate-600">{factura.numeracionComprobante || 'Sin comprobante'}</td>
-              <td className="py-3 pr-4 text-right font-semibold text-[#173d36]">S/ {factura.total.toFixed(2)}</td>
-              <td className="py-3 pr-4">
-                {factura.tipo === 'NOTA_VENTA' ? (
-                  <span className="text-slate-500">No aplica</span>
-                ) : factura.enviado ? (
-                  <span className="font-semibold text-[#1d6f50]">✓ Enviado a SUNAT</span>
-                ) : (
-                  <span className="font-semibold text-rose-700">Error al enviar</span>
+          {facturasPagina.map((factura) => {
+            const expandida = facturaExpandida === factura.id
+            const algunPrecioModificado = factura.items.some(
+              (item) => item.precioCatalogo != null && precioFueModificado(item.precioUnit, item.precioCatalogo),
+            )
+            return (
+              <Fragment key={factura.id}>
+                <tr
+                  onClick={() => setFacturaExpandida(expandida ? null : factura.id)}
+                  className="cursor-pointer border-t border-[#eef1ec] hover:bg-slate-50"
+                >
+                  <td className="py-3 pr-4 whitespace-nowrap text-slate-600">
+                    {factura.fechaHora ? new Date(factura.fechaHora).toLocaleString('es-PE') : '—'}
+                  </td>
+                  <td className="py-3 pr-4 font-semibold text-[#173d36]">
+                    <ClienteHistorialLink clienteId={factura.cliente.id} nombre={factura.cliente.nombre} className="hover:text-emerald-700" />
+                  </td>
+                  <td className="py-3 pr-4 text-slate-600">{factura.tipo}</td>
+                  <td className="py-3 pr-4 text-slate-600">
+                    {factura.numeracionComprobante || 'Sin comprobante'}
+                    {algunPrecioModificado && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Precio modificado</span>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 text-right font-semibold text-[#173d36]">S/ {factura.total.toFixed(2)}</td>
+                  <td className="py-3 pr-4">
+                    {factura.tipo === 'NOTA_VENTA' ? (
+                      <span className="text-slate-500">No aplica</span>
+                    ) : factura.enviado ? (
+                      <span className="font-semibold text-[#1d6f50]">✓ Enviado a SUNAT</span>
+                    ) : (
+                      <span className="font-semibold text-rose-700">Error al enviar</span>
+                    )}
+                    {factura.errors && !factura.enviado && (
+                      <p className="mt-1 max-w-xs text-xs text-rose-700">{factura.errors}</p>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    {factura.enviado && factura.url ? (
+                      <a
+                        href={factura.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="rounded-full border border-[#00483f] px-4 py-1.5 text-xs font-bold text-[#00483f] transition hover:bg-[#00483f] hover:text-white"
+                      >
+                        Ver PDF
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
+                </tr>
+                {expandida && (
+                  <tr className="border-t border-[#eef1ec] bg-slate-50/60">
+                    <td colSpan={7} className="py-3 pr-4">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            <th className="pb-1 pr-3">Item</th>
+                            <th className="pb-1 pr-3 text-right">Cant.</th>
+                            <th className="pb-1 pr-3 text-right">Precio catálogo</th>
+                            <th className="pb-1 pr-3 text-right">Precio cobrado</th>
+                            <th className="pb-1 pr-3 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {factura.items.map((item) => {
+                            const modificado = item.precioCatalogo != null && precioFueModificado(item.precioUnit, item.precioCatalogo)
+                            return (
+                              <tr key={item.id} className="border-t border-slate-200/70">
+                                <td className="py-1.5 pr-3 text-slate-700">
+                                  {item.nombre}
+                                  {modificado && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Precio modificado</span>}
+                                </td>
+                                <td className="py-1.5 pr-3 text-right text-slate-600">{item.cantidad}</td>
+                                <td className="py-1.5 pr-3 text-right text-slate-600">{item.precioCatalogo != null ? `S/ ${item.precioCatalogo.toFixed(2)}` : '—'}</td>
+                                <td className={`py-1.5 pr-3 text-right ${modificado ? 'font-semibold text-amber-800' : 'text-slate-600'}`}>S/ {item.precioUnit.toFixed(2)}</td>
+                                <td className="py-1.5 pr-3 text-right font-semibold text-slate-700">S/ {item.total.toFixed(2)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
                 )}
-                {factura.errors && !factura.enviado && (
-                  <p className="mt-1 max-w-xs text-xs text-rose-700">{factura.errors}</p>
-                )}
-              </td>
-              <td className="py-3">
-                {factura.enviado && factura.url ? (
-                  <a href={factura.url} target="_blank" rel="noreferrer" className="rounded-full border border-[#00483f] px-4 py-1.5 text-xs font-bold text-[#00483f] transition hover:bg-[#00483f] hover:text-white">
-                    Ver PDF
-                  </a>
-                ) : (
-                  <span className="text-slate-400">—</span>
-                )}
-              </td>
-            </tr>
-          ))}
+              </Fragment>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -248,6 +326,8 @@ function FacturacionContent() {
   }, [])
 
   useEffect(() => {
+    setPreciosTratamientoOverride({})
+    setPreciosProductoOverride({})
     if (!form.clienteId) {
       setPendientes([])
       return
@@ -287,6 +367,7 @@ function FacturacionContent() {
         nombre: nuevoCliente.nombre,
         dni: nuevoCliente.tipoDocumento === 'DNI' ? nuevoCliente.numeroDocumento : null,
         ruc: nuevoCliente.tipoDocumento === 'RUC' ? nuevoCliente.numeroDocumento : null,
+        carnetExtranjeria: nuevoCliente.tipoDocumento === 'CE' ? nuevoCliente.numeroDocumento : null,
       }),
     })
     const data = await response.json()
@@ -347,16 +428,28 @@ function FacturacionContent() {
       metodoPago: 'EFECTIVO',
       items: [createInitialItem()],
     })
-    setDescuentoInput('')
     setClienteQuery('')
     setNuevoClienteAbierto(false)
     setNuevoCliente({ nombre: '', tipoDocumento: 'DNI', numeroDocumento: '' })
+    setPreciosTratamientoOverride({})
+    setPreciosProductoOverride({})
   }
 
   const handleSubmit = async () => {
     if (!form.clienteId) return
     if (pendientes.length === 0 && itemsValidos.length === 0) return
     setSubmitting(true)
+
+    const preciosTratamiento = Object.fromEntries(
+      Object.entries(preciosTratamientoOverride)
+        .filter(([, valor]) => valor !== '' && Number.isFinite(Number(valor)))
+        .map(([id, valor]) => [id, Number(valor)]),
+    )
+    const preciosProducto = Object.fromEntries(
+      Object.entries(preciosProductoOverride)
+        .filter(([, valor]) => valor !== '' && Number.isFinite(Number(valor)))
+        .map(([id, valor]) => [id, Number(valor)]),
+    )
 
     const response = await fetch('/api/facturacion', {
       method: 'POST',
@@ -365,9 +458,10 @@ function FacturacionContent() {
         clienteId: form.clienteId,
         tratamientoLineIds: pendientes.flatMap((pendiente) => pendiente.tratamientos.map((t) => t.id)),
         productoLineIds: pendientes.flatMap((pendiente) => pendiente.productos.map((p) => p.id)),
+        preciosTratamiento,
+        preciosProducto,
         tipo: form.tipo,
         metodoPago: form.metodoPago,
-        montoDescuento,
         items: itemsValidos,
       }),
     })
@@ -419,7 +513,7 @@ function FacturacionContent() {
         <div className="card-surface">
           <p className="eyebrow">Facturación</p>
           <h1 className="page-heading mt-3 text-3xl">Cobros y comprobantes</h1>
-          <p className="mt-2 text-slate-600">Registra ventas, aplica descuentos y genera comprobantes con métodos de pago.</p>
+          <p className="mt-2 text-slate-600">Registra ventas, ajusta el precio cuando corresponda y genera comprobantes con métodos de pago.</p>
         </div>
 
         <div className="grid gap-6">
@@ -505,6 +599,11 @@ function FacturacionContent() {
                       >DNI</button>
                       <button
                         type="button"
+                        onClick={() => setNuevoCliente((prev) => ({ ...prev, tipoDocumento: 'CE' }))}
+                        className={`flex-1 px-3 py-2.5 font-semibold ${nuevoCliente.tipoDocumento === 'CE' ? 'bg-emerald-700 text-white' : 'text-slate-500'}`}
+                      >CE</button>
+                      <button
+                        type="button"
                         onClick={() => setNuevoCliente((prev) => ({ ...prev, tipoDocumento: 'RUC' }))}
                         className={`flex-1 px-3 py-2.5 font-semibold ${nuevoCliente.tipoDocumento === 'RUC' ? 'bg-emerald-700 text-white' : 'text-slate-500'}`}
                       >RUC</button>
@@ -512,7 +611,7 @@ function FacturacionContent() {
                     <input
                       value={nuevoCliente.numeroDocumento}
                       onChange={(event) => setNuevoCliente((prev) => ({ ...prev, numeroDocumento: event.target.value }))}
-                      placeholder={nuevoCliente.tipoDocumento === 'DNI' ? 'Número de DNI' : 'Número de RUC'}
+                      placeholder={nuevoCliente.tipoDocumento === 'DNI' ? 'Número de DNI' : nuevoCliente.tipoDocumento === 'CE' ? 'Número de Carnet de Extranjería' : 'Número de RUC'}
                       className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -545,18 +644,59 @@ function FacturacionContent() {
                           {new Date(pendiente.horaInicio).toLocaleString('es-PE')}
                           {pendiente.cabina ? ` · Cabina ${pendiente.cabina.nombre}` : ''}
                         </p>
-                        {pendiente.tratamientos.map((item) => (
-                          <div key={item.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
-                            <span className="font-medium text-slate-900">{item.nombre}</span>
-                            <span className="text-slate-600">S/ {item.precio.toFixed(2)}</span>
-                          </div>
-                        ))}
-                        {pendiente.productos.map((item) => (
-                          <div key={item.id} className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                            <span>{item.producto.nombre} × {item.cantidad}</span>
-                            <span>S/ {(item.cantidad * item.precioUnit).toFixed(2)}</span>
-                          </div>
-                        ))}
+                        {pendiente.tratamientos.map((item) => {
+                          const precioEfectivo = precioTratamientoEfectivo(item)
+                          return (
+                            <div key={item.id} className="mt-2 flex items-center justify-between gap-3 text-sm">
+                              <span className="flex items-center gap-2 font-medium text-slate-900">
+                                {item.nombre}
+                                {precioFueModificado(precioEfectivo, item.precioCatalogo) && (
+                                  <span title={`Precio de catálogo: S/ ${item.precioCatalogo.toFixed(2)}`} className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                                    Precio modificado
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex items-center gap-1 text-slate-600">
+                                S/
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={preciosTratamientoOverride[item.id] ?? String(item.precio)}
+                                  onChange={(event) => setPreciosTratamientoOverride((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                                  className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-right text-sm outline-none focus:border-emerald-500"
+                                />
+                              </span>
+                            </div>
+                          )
+                        })}
+                        {pendiente.productos.map((item) => {
+                          const precioEfectivo = precioProductoEfectivo(item)
+                          return (
+                            <div key={item.id} className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500">
+                              <span className="flex items-center gap-2">
+                                {item.producto.nombre} × {item.cantidad}
+                                {precioFueModificado(precioEfectivo, item.precioCatalogo) && (
+                                  <span title={`Precio de catálogo: S/ ${item.precioCatalogo.toFixed(2)}`} className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                                    Precio modificado
+                                  </span>
+                                )}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                S/
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={preciosProductoOverride[item.id] ?? String(item.precioUnit)}
+                                  onChange={(event) => setPreciosProductoOverride((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                                  className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-right text-xs outline-none focus:border-emerald-500"
+                                />
+                                <span>c/u</span>
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
                     ))}
                   </div>
@@ -672,33 +812,6 @@ function FacturacionContent() {
                   <span>S/ {subtotal.toFixed(2)}</span>
                 </div>
 
-                <div className="mt-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <label htmlFor="factura-descuento" className="text-sm font-medium text-slate-700">Monto a descontar</label>
-                    {descuentoInput && (
-                      <button
-                        type="button"
-                        onClick={() => setDescuentoInput('')}
-                        className="text-xs font-semibold text-emerald-700"
-                      >Quitar</button>
-                    )}
-                  </div>
-                  <input
-                    id="factura-descuento"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={descuentoInput}
-                    onChange={(event) => setDescuentoInput(event.target.value)}
-                    placeholder="S/ 0.00"
-                    className="field mt-2 bg-white"
-                  />
-                </div>
-
-                <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
-                  <span>Total descuento</span>
-                  <span>- S/ {montoDescuento.toFixed(2)}</span>
-                </div>
                 <div className="mt-4 flex items-center justify-between border-t border-dashed border-[#dfe8e0] pt-4">
                   <span className="text-[15px] font-extrabold text-[#173d36]">Total</span>
                   <span className="page-heading text-2xl">S/ {total.toFixed(2)}</span>

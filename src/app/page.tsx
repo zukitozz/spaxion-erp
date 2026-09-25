@@ -13,7 +13,6 @@ export default async function Home() {
       : []),
     { title: 'Inventario', href: '/inventario', description: 'Control de stock y alertas de reabastecimiento' },
     { title: 'Facturación', href: '/facturacion', description: 'Cobros, boletas y facturas' },
-    { title: 'Descuentos', href: '/descuentos', description: 'Promociones y códigos de descuento' },
     { title: 'Reportes', href: '/reportes', description: 'Cierres de turno y métricas' },
     { title: 'Ajustes', href: '/ajustes', description: 'Configuración de API y Google Calendar' },
   ]

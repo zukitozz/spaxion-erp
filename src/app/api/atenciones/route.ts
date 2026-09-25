@@ -105,6 +105,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'El usuario seleccionado no es un esteticista' }, { status: 400 })
   }
 
+  const tratamiento = await prisma.tratamiento.findUnique({ where: { id: body.tratamientoId } })
+  if (!tratamiento) {
+    return NextResponse.json({ error: 'Tratamiento no encontrado' }, { status: 404 })
+  }
+
+  // Solo ADMIN/SUPERVISOR pueden acordar un precio distinto al del catálogo; la esteticista
+  // siempre asigna el tratamiento al precio de catálogo.
+  const puedeCambiarPrecio = session.user.role === 'ADMIN' || session.user.role === 'SUPERVISOR'
+  const precioBody = Number(body.precio)
+  const precio = puedeCambiarPrecio && Number.isFinite(precioBody) && precioBody >= 0 ? precioBody : tratamiento.precio
+
   try {
     const atencion = await prisma.$transaction(async (tx) => {
       if (body.cabinaId) {
@@ -137,6 +148,8 @@ export async function POST(req: Request) {
               tratamientoId: body.tratamientoId,
               esteticistaId: body.esteticistaId,
               orden: 0,
+              precio,
+              precioCatalogo: tratamiento.precio,
             },
           },
         },

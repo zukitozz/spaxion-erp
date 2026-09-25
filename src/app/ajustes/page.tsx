@@ -5,6 +5,10 @@ import { useToast } from '@/components/Toast'
 
 interface Settings {
   nombreEmpresa: string
+  ruc: string | null
+  razonSocial: string | null
+  direccionFiscal: string | null
+  codigoUbigeo: string | null
   googleCalendarActivo: boolean
   googleCalendarId: string | null
   googleCuentaEmail: string | null
@@ -16,6 +20,10 @@ interface Settings {
 
 const initialSettings: Settings = {
   nombreEmpresa: 'Spaxión Centro Estético',
+  ruc: '',
+  razonSocial: '',
+  direccionFiscal: '',
+  codigoUbigeo: '',
   googleCalendarActivo: false,
   googleCalendarId: '',
   googleCuentaEmail: null,
@@ -74,6 +82,14 @@ export default function AjustesPage() {
             <h2 className="text-xl font-semibold text-emerald-900">Empresa</h2>
             <label htmlFor="nombre-empresa" className="text-sm font-medium text-slate-700">Nombre comercial</label>
             <input id="nombre-empresa" value={settings.nombreEmpresa} onChange={(e) => setSettings({ ...settings, nombreEmpresa: e.target.value })} className="field" />
+            <label htmlFor="razon-social" className="text-sm font-medium text-slate-700">Razón social</label>
+            <input id="razon-social" value={settings.razonSocial || ''} onChange={(e) => setSettings({ ...settings, razonSocial: e.target.value })} className="field" />
+            <label htmlFor="ruc" className="text-sm font-medium text-slate-700">RUC</label>
+            <input id="ruc" value={settings.ruc || ''} onChange={(e) => setSettings({ ...settings, ruc: e.target.value })} className="field" maxLength={11} placeholder="11 dígitos" />
+            <label htmlFor="direccion-fiscal" className="text-sm font-medium text-slate-700">Dirección fiscal</label>
+            <input id="direccion-fiscal" value={settings.direccionFiscal || ''} onChange={(e) => setSettings({ ...settings, direccionFiscal: e.target.value })} className="field" />
+            <label htmlFor="codigo-ubigeo" className="text-sm font-medium text-slate-700">Código de ubigeo</label>
+            <input id="codigo-ubigeo" value={settings.codigoUbigeo || ''} onChange={(e) => setSettings({ ...settings, codigoUbigeo: e.target.value })} className="field" placeholder="Ej. 150101" />
           </div>
           <div className="card-surface space-y-4">
             <h2 className="text-xl font-semibold text-emerald-900">Google Calendar</h2>

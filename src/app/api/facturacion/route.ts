@@ -26,12 +26,17 @@ const TIPO_DOCUMENTO_CORRELATIVO: Record<string, string> = {
   NOTA_VENTA: '51',
 }
 
+function precioValido(valor: unknown): number | null {
+  const n = Number(valor)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
 export async function GET() {
   const guard = await requireApiAuth()
   if (guard) return guard
   const facturas = await prisma.factura.findMany({
     where: { activo: true },
-    include: { cliente: true, items: true, descuento: true },
+    include: { cliente: true, items: true },
     orderBy: { creadoAt: 'desc' },
   })
 
@@ -54,6 +59,14 @@ export async function POST(req: Request) {
     ? body.productoLineIds.filter((id: unknown) => typeof id === 'string')
     : []
 
+  // Precio editado en caja para una línea puntual (id de AtencionTratamiento/AtencionProducto ->
+  // precio unitario). No es un descuento: reemplaza el precio base acordado y queda registrado
+  // junto al precio de catálogo (precioCatalogo) para poder evidenciarlo en los reportes.
+  const preciosTratamiento: Record<string, unknown> =
+    body.preciosTratamiento && typeof body.preciosTratamiento === 'object' ? body.preciosTratamiento : {}
+  const preciosProducto: Record<string, unknown> =
+    body.preciosProducto && typeof body.preciosProducto === 'object' ? body.preciosProducto : {}
+
   const lineasTratamiento = tratamientoLineIds.length > 0
     ? await prisma.atencionTratamiento.findMany({
         where: { id: { in: tratamientoLineIds }, atencion: { clienteId: body.clienteId }, estado: 'FINALIZADA', facturaId: null },
@@ -64,40 +77,80 @@ export async function POST(req: Request) {
   const lineasProducto = productoLineIds.length > 0
     ? await prisma.atencionProducto.findMany({
         where: { id: { in: productoLineIds }, atencion: { clienteId: body.clienteId }, facturaId: null },
-        include: { producto: { select: { nombre: true } } },
+        include: { producto: { select: { nombre: true, precioVenta: true } } },
       })
     : []
 
   const itemsDeAtenciones = [
-    ...lineasTratamiento.map((linea) => ({
-      productoId: null as string | null,
-      nombre: linea.tratamiento.nombre,
-      cantidad: 1,
-      precioUnit: linea.tratamiento.precio,
-      total: round2(linea.tratamiento.precio),
-    })),
-    ...lineasProducto.map((item) => ({
-      productoId: item.productoId as string | null,
-      nombre: item.producto.nombre,
-      cantidad: item.cantidad,
-      precioUnit: item.precioUnit,
-      total: round2(item.cantidad * item.precioUnit),
-    })),
+    ...lineasTratamiento.map((linea) => {
+      const precioCatalogo = linea.tratamiento.precio
+      const precioUnit = precioValido(preciosTratamiento[linea.id]) ?? linea.precio ?? precioCatalogo
+      return {
+        productoId: null as string | null,
+        nombre: linea.tratamiento.nombre,
+        cantidad: 1,
+        precioUnit,
+        total: round2(precioUnit),
+        precioCatalogo,
+      }
+    }),
+    ...lineasProducto.map((item) => {
+      const precioCatalogo = item.producto.precioVenta
+      const precioUnit = precioValido(preciosProducto[item.id]) ?? item.precioUnit
+      return {
+        productoId: item.productoId as string | null,
+        nombre: item.producto.nombre,
+        cantidad: item.cantidad,
+        precioUnit,
+        total: round2(item.cantidad * precioUnit),
+        precioCatalogo,
+      }
+    }),
   ]
 
   // Los items manuales admiten un producto o un tratamiento (sin control de stock en este último caso).
-  const itemsManuales = body.items
-    .filter((item: any) =>
-      (typeof item.productoId === 'string' && item.productoId.length > 0) ||
-      (typeof item.tratamientoId === 'string' && item.tratamientoId.length > 0)
-    )
-    .map((item: any) => ({
-      productoId: typeof item.productoId === 'string' && item.productoId.length > 0 ? item.productoId : null,
+  const itemsManualesBody = body.items.filter((item: any) =>
+    (typeof item.productoId === 'string' && item.productoId.length > 0) ||
+    (typeof item.tratamientoId === 'string' && item.tratamientoId.length > 0)
+  )
+
+  const productoIdsManuales = itemsManualesBody
+    .map((item: any) => item.productoId)
+    .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+  const tratamientoIdsManuales = itemsManualesBody
+    .map((item: any) => item.tratamientoId)
+    .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+
+  const [productosCatalogo, tratamientosCatalogo] = await Promise.all([
+    productoIdsManuales.length > 0
+      ? prisma.producto.findMany({ where: { id: { in: productoIdsManuales } }, select: { id: true, precioVenta: true } })
+      : Promise.resolve([] as { id: string; precioVenta: number }[]),
+    tratamientoIdsManuales.length > 0
+      ? prisma.tratamiento.findMany({ where: { id: { in: tratamientoIdsManuales } }, select: { id: true, precio: true } })
+      : Promise.resolve([] as { id: string; precio: number }[]),
+  ])
+  const precioCatalogoProducto = new Map(productosCatalogo.map((p) => [p.id, p.precioVenta]))
+  const precioCatalogoTratamiento = new Map(tratamientosCatalogo.map((t) => [t.id, t.precio]))
+
+  const itemsManuales = itemsManualesBody.map((item: any) => {
+    const productoId = typeof item.productoId === 'string' && item.productoId.length > 0 ? item.productoId : null
+    const tratamientoId = typeof item.tratamientoId === 'string' && item.tratamientoId.length > 0 ? item.tratamientoId : null
+    const cantidad = Number(item.cantidad) || 0
+    const precioUnit = Number(item.precioUnit) || 0
+    const precioCatalogo = productoId
+      ? precioCatalogoProducto.get(productoId)
+      : tratamientoId
+        ? precioCatalogoTratamiento.get(tratamientoId)
+        : undefined
+    return {
+      productoId,
       nombre: item.nombre,
-      cantidad: Number(item.cantidad) || 0,
-      precioUnit: Number(item.precioUnit) || 0,
-      total: round2((Number(item.cantidad) || 0) * (Number(item.precioUnit) || 0)),
-    }))
+      cantidad,
+      precioUnit,
+      total: round2(cantidad * precioUnit),
+      precioCatalogo: precioCatalogo ?? null,
+    }
+  })
 
   const items = [...itemsDeAtenciones, ...itemsManuales]
 
@@ -105,29 +158,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Selecciona al menos un producto o tratamiento pendiente' }, { status: 400 })
   }
 
-  const subtotal = items.reduce((sum: number, item: { total: number }) => sum + item.total, 0)
-  const descuentoAplicado = Math.min(round2(Math.max(0, Number(body.montoDescuento) || 0)), subtotal)
-  const total = round2(subtotal - descuentoAplicado)
-
-  // SUNAT valida que la suma de los items coincida con el total del comprobante, así que en
-  // vez de declarar un descuento aparte, se recalcula hacia atrás el precio de cada item para
-  // que ya reflejen el precio final acordado con el cliente.
-  const itemsFacturados = descuentoAplicado > 0 && subtotal > 0
-    ? (() => {
-        const factor = total / subtotal
-        let acumulado = 0
-        return items.map((item: { total: number; cantidad: number }, index: number) => {
-          const esUltimo = index === items.length - 1
-          const nuevoTotal = esUltimo ? round2(total - acumulado) : round2(item.total * factor)
-          acumulado = round2(acumulado + nuevoTotal)
-          return {
-            ...item,
-            total: nuevoTotal,
-            precioUnit: item.cantidad > 0 ? round2(nuevoTotal / item.cantidad) : nuevoTotal,
-          }
-        })
-      })()
-    : items
+  // No se manejan descuentos: el total es la suma directa de los items ya al precio acordado
+  // (de catálogo o modificado). Cualquier ajuste de monto se hace cambiando el precio base del
+  // item correspondiente, nunca restando un descuento aparte.
+  const total = round2(items.reduce((sum: number, item: { total: number }) => sum + item.total, 0))
 
   const session = await auth()
   if (!session?.user?.id) {
@@ -177,9 +211,8 @@ export async function POST(req: Request) {
         total,
         metodoPago: body.metodoPago || 'EFECTIVO',
         estado: body.estado || 'PAGADO',
-        descuentoAplicado,
         items: {
-          create: itemsFacturados.map((item: any) => {
+          create: items.map((item: any) => {
             const { productoId, ...rest } = item
             return { ...rest, producto: productoId ? { connect: { id: productoId } } : undefined }
           }),
@@ -201,7 +234,7 @@ export async function POST(req: Request) {
         pagoTransferencia: body.metodoPago === 'TRANSFERENCIA' ? total : null,
         pagoDeposito: body.metodoPago === 'DEPOSITO' ? total : null,
       },
-      include: { cliente: true, items: true, descuento: true },
+      include: { cliente: true, items: true },
     })
 
     if (lineasTratamiento.length > 0) {

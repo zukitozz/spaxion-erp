@@ -11,6 +11,7 @@ interface Cliente {
   nombre: string
   dni: string | null
   ruc: string | null
+  carnetExtranjeria: string | null
   razonSocial: string | null
   celular: string | null
   distrito: string | null
@@ -25,13 +26,14 @@ interface Cliente {
 const PAGE_SIZE = 10
 
 const emptyForm = {
-  nombre: '', dni: '', ruc: '', razonSocial: '', celular: '', distrito: '',
+  nombre: '', dni: '', ruc: '', carnetExtranjeria: '', razonSocial: '', celular: '', distrito: '',
   email: '', fechaNacimiento: '', peso: '', edad: '', altura: '', notas: '',
 }
 
 function documentLabel(cliente: Cliente) {
   if (cliente.dni) return `DNI ${cliente.dni}`
   if (cliente.ruc) return `RUC ${cliente.ruc}`
+  if (cliente.carnetExtranjeria) return `CE ${cliente.carnetExtranjeria}`
   return 'Sin documento'
 }
 
@@ -61,7 +63,8 @@ export default function ClientesPage() {
     return base.filter((cliente) =>
       cliente.nombre.toLowerCase().includes(query) ||
       (cliente.dni || '').includes(query) ||
-      (cliente.ruc || '').includes(query),
+      (cliente.ruc || '').includes(query) ||
+      (cliente.carnetExtranjeria || '').includes(query),
     )
   }, [clientes, filtro, busqueda])
 
@@ -83,6 +86,7 @@ export default function ClientesPage() {
       nombre: cliente.nombre,
       dni: cliente.dni || '',
       ruc: cliente.ruc || '',
+      carnetExtranjeria: cliente.carnetExtranjeria || '',
       razonSocial: cliente.razonSocial || '',
       celular: cliente.celular || '',
       distrito: cliente.distrito || '',
@@ -253,10 +257,14 @@ export default function ClientesPage() {
                 <input id="cliente-nombre" value={form.nombre} onChange={(event) => setForm((prev) => ({ ...prev, nombre: event.target.value }))} className="field mt-2" />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <label htmlFor="cliente-dni" className="block text-sm font-medium text-slate-700">DNI</label>
                   <input id="cliente-dni" value={form.dni} onChange={(event) => setForm((prev) => ({ ...prev, dni: event.target.value }))} className="field mt-2" placeholder="Para boleta" />
+                </div>
+                <div>
+                  <label htmlFor="cliente-carnet-extranjeria" className="block text-sm font-medium text-slate-700">Carnet de extranjería</label>
+                  <input id="cliente-carnet-extranjeria" value={form.carnetExtranjeria} onChange={(event) => setForm((prev) => ({ ...prev, carnetExtranjeria: event.target.value }))} className="field mt-2" placeholder="Para boleta" />
                 </div>
                 <div>
                   <label htmlFor="cliente-ruc" className="block text-sm font-medium text-slate-700">RUC</label>
