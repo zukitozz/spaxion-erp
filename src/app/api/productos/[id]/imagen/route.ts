@@ -6,7 +6,7 @@ import { guardarFotoProducto, presignarProducto } from '@/lib/storage'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
   const producto = await prisma.producto.findUnique({ where: { id: params.id } })

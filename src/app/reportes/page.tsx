@@ -127,7 +127,7 @@ export default function ReportesPage() {
         <div className="card-surface">
           <p className="eyebrow">Reportes</p>
           <h1 className="mt-3 page-heading text-3xl">Cierres de turno</h1>
-          <p className="mt-2 text-slate-600">Solo para supervisor: revisa cierres históricos de caja y métricas.</p>
+          <p className="mt-2 text-slate-600">Solo para gerente: revisa cierres históricos de caja y métricas.</p>
           <Link href="/historico/atenciones" className="btn-brand mt-5 inline-flex">Ver histórico de atenciones</Link>
         </div>
 
@@ -184,7 +184,7 @@ export default function ReportesPage() {
                 <p className="text-sm text-slate-500">Últimos cierres</p>
                 <h2 className="mt-2 page-heading text-3xl">{cierres.length}</h2>
               </div>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Supervisor</span>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Gerente</span>
             </div>
 
             <div className="mt-6 space-y-4">
