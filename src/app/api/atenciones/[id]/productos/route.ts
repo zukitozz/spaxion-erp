@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
+import { auth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,12 +51,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
   }
 
+  // Solo ADMIN/SUPERVISOR pueden acordar un precio distinto al del catálogo; la esteticista
+  // siempre agrega el producto al precio de catálogo.
+  const session = await auth()
+  const puedeCambiarPrecio = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPERVISOR'
+  const precioUnitBody = Number(body.precioUnit)
+  const precioUnit = puedeCambiarPrecio && Number.isFinite(precioUnitBody) && precioUnitBody >= 0 ? precioUnitBody : producto.precioVenta
+
   const item = await prisma.atencionProducto.create({
     data: {
       atencionId: atencion.id,
       productoId: producto.id,
       cantidad,
-      precioUnit: producto.precioVenta,
+      precioUnit,
+      precioCatalogo: producto.precioVenta,
     },
     include,
   })

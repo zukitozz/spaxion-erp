@@ -19,6 +19,7 @@ function clienteData(body: Record<string, unknown>) {
     nombre: body.nombre as string,
     dni: (body.dni as string) || null,
     ruc: (body.ruc as string) || null,
+    carnetExtranjeria: (body.carnetExtranjeria as string) || null,
     razonSocial: (body.razonSocial as string) || null,
     celular: (body.celular as string) || null,
     distrito: (body.distrito as string) || null,
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json(cliente, { status: 201 })
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as { code?: string }).code === 'P2002') {
-      return NextResponse.json({ error: 'Ese DNI o RUC ya está registrado en otro cliente' }, { status: 409 })
+      return NextResponse.json({ error: 'Ese DNI, RUC o Carnet de Extranjería ya está registrado en otro cliente' }, { status: 409 })
     }
     throw error
   }
@@ -72,7 +73,7 @@ export async function PUT(req: Request) {
     return NextResponse.json(updated)
   } catch (error) {
     if (error instanceof Error && 'code' in error && (error as { code?: string }).code === 'P2002') {
-      return NextResponse.json({ error: 'Ese DNI o RUC ya está registrado en otro cliente' }, { status: 409 })
+      return NextResponse.json({ error: 'Ese DNI, RUC o Carnet de Extranjería ya está registrado en otro cliente' }, { status: 409 })
     }
     throw error
   }

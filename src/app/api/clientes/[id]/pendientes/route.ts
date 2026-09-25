@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       },
       productos: {
         where: { facturaId: null },
-        include: { producto: { select: { id: true, nombre: true } } },
+        include: { producto: { select: { id: true, nombre: true, precioVenta: true } } },
         orderBy: { creadoAt: 'asc' },
       },
     },
@@ -39,12 +39,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     tratamientos: atencion.tratamientos.map((linea) => ({
       id: linea.id,
       nombre: linea.tratamiento.nombre,
-      precio: linea.tratamiento.precio,
+      // Precio acordado al asignar el tratamiento (si no se cambió, es el mismo del catálogo).
+      precio: linea.precio ?? linea.tratamiento.precio,
+      precioCatalogo: linea.tratamiento.precio,
     })),
     productos: atencion.productos.map((item) => ({
       id: item.id,
       cantidad: item.cantidad,
       precioUnit: item.precioUnit,
+      precioCatalogo: item.producto.precioVenta,
       producto: item.producto,
     })),
   }))

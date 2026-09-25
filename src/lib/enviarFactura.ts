@@ -23,14 +23,14 @@ export async function enviarFacturaASunat(facturaId: string) {
         errors: resultado.errors || null,
         xmlEnvio: JSON.stringify(resultado.raw),
       },
-      include: { cliente: true, items: true, descuento: true },
+      include: { cliente: true, items: true },
     })
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'Error desconocido al enviar a SUNAT'
     return prisma.factura.update({
       where: { id: factura.id },
       data: { errors: mensaje },
-      include: { cliente: true, items: true, descuento: true },
+      include: { cliente: true, items: true },
     })
   }
 }
