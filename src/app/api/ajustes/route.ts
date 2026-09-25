@@ -22,6 +22,10 @@ export async function PUT(req: Request) {
     where: { id: 'default' },
     update: {
       nombreEmpresa: body.nombreEmpresa,
+      ruc: body.ruc || null,
+      razonSocial: body.razonSocial || null,
+      direccionFiscal: body.direccionFiscal || null,
+      codigoUbigeo: body.codigoUbigeo || null,
       googleCalendarActivo: Boolean(body.googleCalendarActivo),
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
@@ -32,6 +36,10 @@ export async function PUT(req: Request) {
     create: {
       id: 'default',
       nombreEmpresa: body.nombreEmpresa || 'Spaxión Centro Estético',
+      ruc: body.ruc || null,
+      razonSocial: body.razonSocial || null,
+      direccionFiscal: body.direccionFiscal || null,
+      codigoUbigeo: body.codigoUbigeo || null,
       googleCalendarActivo: Boolean(body.googleCalendarActivo),
       googleCalendarId: body.googleCalendarId || null,
       facturacionEndpoint: body.facturacionEndpoint || null,
