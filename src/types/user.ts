@@ -6,3 +6,9 @@ export interface User {
   email: string
   role: UserRole
 }
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  SUPERVISOR: 'Gerente',
+  ADMIN: 'Administrador',
+  ESTETICISTA: 'Esteticista',
+}

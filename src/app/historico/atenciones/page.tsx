@@ -228,7 +228,7 @@ function HistoricoAtencionesContent() {
 
         {sinPermiso ? (
           <div className="card-surface">
-            <p className="text-sm text-slate-600">No tienes permisos para ver este histórico. Solo administradores y supervisores pueden acceder.</p>
+            <p className="text-sm text-slate-600">No tienes permisos para ver este histórico. Solo administradores y gerentes pueden acceder.</p>
           </div>
         ) : (
           <>

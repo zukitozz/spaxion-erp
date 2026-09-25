@@ -53,7 +53,7 @@ Proyecto inicial para un sistema ERP/POS de gestión de spa con Next.js 14, Post
   2. Configura la pantalla de consentimiento OAuth (modo interno o externo con tu email como test user).
   3. Crea una credencial "OAuth 2.0 Client ID" tipo *Web application*, con redirect URI `<NEXTAUTH_URL>/api/integraciones/google-calendar/callback`.
   4. Copia el Client ID/Secret a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.env`.
-  5. Desde Ajustes (rol Supervisor), pulsa "Conectar con Google" para autorizar la cuenta; el refresh token queda cifrado en la tabla `Configuracion`.
+  5. Desde Ajustes (rol Gerente), pulsa "Conectar con Google" para autorizar la cuenta; el refresh token queda cifrado en la tabla `Configuracion`.
   - Con la sincronización activada (`googleCalendarActivo`), crear/editar/eliminar una cita en la app se refleja en Calendar, y al abrir el módulo de Citas se hace polling de Calendar hacia la app: los eventos nuevos se vinculan a un cliente si su DNI/RUC o nombre aparece en la descripción del evento; si no hay coincidencia, la cita se importa sin cliente asignado.
 - Las fotos de atenciones y productos se guardan en S3 (`src/lib/storage.ts`), no en disco local — necesario en hosting serverless (Vercel), donde el filesystem no persiste entre despliegues:
   1. Crea un bucket S3 privado (bloqueo de acceso público activado, es el valor por defecto).

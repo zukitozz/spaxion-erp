@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
 import { useConfiguracion } from '@/components/ConfiguracionProvider'
-import type { UserRole } from '@/types/user'
+import { ROLE_LABELS, type UserRole } from '@/types/user'
 
 const STAFF: UserRole[] = ['ADMIN', 'SUPERVISOR']
 
@@ -36,9 +36,9 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/citas', label: 'Citas', icon: CalendarCheck, roles: STAFF },
   { href: '/cabinas', label: 'Cabinas', icon: DoorClosed, roles: ['SUPERVISOR'] },
   { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ESTETICISTA'] },
-  { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['ADMIN', 'SUPERVISOR'] },
-  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['ADMIN', 'SUPERVISOR'] },
+  { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['SUPERVISOR'] },
+  { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['SUPERVISOR'] },
+  { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['SUPERVISOR'] },
   { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
   { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
   { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
@@ -136,7 +136,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
             {!collapsed && (
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-[#fffdf7]">{session?.user?.name}</p>
-                <p className="truncate text-[11px] uppercase tracking-[0.16em] text-[#c6d9cd]">{session?.user?.role}</p>
+                <p className="truncate text-[11px] uppercase tracking-[0.16em] text-[#c6d9cd]">{role ? ROLE_LABELS[role] : ''}</p>
               </div>
             )}
           </div>

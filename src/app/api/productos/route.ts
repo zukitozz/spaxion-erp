@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const body = await req.json()
   if (typeof body.nombre !== 'string' || !body.nombre.trim()) {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const body = await req.json()
 
@@ -77,7 +77,7 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const url = new URL(req.url)
   const id = url.searchParams.get('id')

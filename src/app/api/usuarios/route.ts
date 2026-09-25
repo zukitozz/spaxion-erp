@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Nombre, correo y contraseña requeridos' }, { status: 400 })
   }
   if (body.role === 'SUPERVISOR') {
-    return NextResponse.json({ error: 'No se pueden crear más usuarios Supervisor' }, { status: 400 })
+    return NextResponse.json({ error: 'No se pueden crear más usuarios Gerente' }, { status: 400 })
   }
 
   try {
@@ -68,7 +68,7 @@ export async function PUT(req: Request) {
   if (body.role === 'SUPERVISOR') {
     const existente = await prisma.user.findUnique({ where: { id: body.id }, select: { role: true } })
     if (existente?.role !== 'SUPERVISOR') {
-      return NextResponse.json({ error: 'No se pueden crear más usuarios Supervisor' }, { status: 400 })
+      return NextResponse.json({ error: 'No se pueden crear más usuarios Gerente' }, { status: 400 })
     }
   }
 

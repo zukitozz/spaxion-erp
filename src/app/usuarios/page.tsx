@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { useToast } from '@/components/Toast'
+import { ROLE_LABELS } from '@/types/user'
 
 interface Usuario {
   id: string
@@ -123,7 +124,7 @@ export default function UsuariosPage() {
             <select aria-label="Rol" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Usuario['role'] })} className="field">
               <option value="ESTETICISTA">Esteticista</option>
               <option value="ADMIN">Administrador</option>
-              {form.role === 'SUPERVISOR' && <option value="SUPERVISOR" disabled>Supervisor (no se pueden crear más)</option>}
+              {form.role === 'SUPERVISOR' && <option value="SUPERVISOR" disabled>Gerente (no se pueden crear más)</option>}
             </select>
             <button type="button" disabled={loading || !form.name || !form.email} onClick={() => void saveUser()} className="btn-brand flex w-full items-center justify-center gap-2 disabled:opacity-60">
               {loading && <Spinner />}
@@ -136,7 +137,7 @@ export default function UsuariosPage() {
               <div key={user.id} className="flex items-center justify-between rounded-3xl border border-slate-200 bg-slate-50 p-4">
                 <div>
                   <p className="font-semibold text-slate-900">{user.name}</p>
-                  <p className="text-sm text-slate-500">{user.email} · {user.role}</p>
+                  <p className="text-sm text-slate-500">{user.email} · {ROLE_LABELS[user.role]}</p>
                   {(user.celular1 || user.celular2) && (
                     <p className="mt-1 text-sm text-slate-500">
                       Cel: {[user.celular1, user.celular2].filter(Boolean).join(' · ')}
