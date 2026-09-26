@@ -84,14 +84,17 @@ function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaI
 <style>
   @page { size: 80mm auto; margin: 0; }
   * { box-sizing: border-box; }
-  body { width: 76mm; margin: 0 auto; padding: 2mm 3mm; font-family: 'Courier New', monospace; font-size: 11px; color: #000; }
+  /* Peso de fuente alto en todo el ticket: las impresoras térmicas dithean el
+     antialiasing del texto normal y sale borroso; en negrita/semibold los
+     trazos son lo bastante gruesos como para imprimirse nítidos. */
+  body { width: 76mm; margin: 0 auto; padding: 2mm 3mm; font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 700; color: #000; }
   .centrado { text-align: center; }
-  .separador { border-top: 1px dashed #000; margin: 6px 0; }
+  .separador { border-top: 2px dashed #000; margin: 6px 0; }
   .fila { display: flex; justify-content: space-between; gap: 8px; }
   .fila-item { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
-  h1 { font-size: 13px; margin: 0 0 2px; }
+  h1 { font-size: 14px; margin: 0 0 2px; }
   p { margin: 0; }
-  .total { font-size: 13px; font-weight: bold; }
+  .total { font-size: 14px; }
 </style>
 </head>
 <body>
