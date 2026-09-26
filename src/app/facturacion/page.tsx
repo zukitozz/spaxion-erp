@@ -269,7 +269,7 @@ function FacturacionContent() {
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation()
-                            imprimirTicket(factura, empresa)
+                            void imprimirTicket(factura, empresa)
                           }}
                           className="rounded-full border border-slate-300 px-4 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
                         >
@@ -516,7 +516,7 @@ function FacturacionContent() {
     }
 
     if (data && puedeImprimirTicket(data.tipo)) {
-      imprimirTicket(data, empresa)
+      await imprimirTicket(data, empresa)
     }
   }
 

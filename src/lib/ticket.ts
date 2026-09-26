@@ -1,3 +1,5 @@
+import QRCode from 'qrcode'
+
 export interface TicketClienteInfo {
   nombre: string
   dni?: string | null
@@ -52,13 +54,18 @@ export function puedeImprimirTicket(tipo: string): boolean {
   return tipo === 'BOLETA' || tipo === 'FACTURA'
 }
 
+// TODO: reemplazar por la cadena para código QR y el hash reales que exige SUNAT
+// para boletas/facturas electrónicas en cuanto se defina el formato exacto.
+const QR_GENERICO = 'https://www.sunat.gob.pe'
+const HASH_GENERICO = 'PENDIENTE-DEFINIR-HASH'
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char
   ))
 }
 
-function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaInfo): string {
+function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaInfo, qrDataUrl: string): string {
   const esFactura = factura.tipo === 'FACTURA'
   const nombreCliente = esFactura && factura.cliente.razonSocial ? factura.cliente.razonSocial : factura.cliente.nombre
   const documentoCliente = esFactura
@@ -95,6 +102,7 @@ function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaI
   h1 { font-size: 14px; margin: 0 0 2px; font-weight: 700; }
   p { margin: 0; }
   .total { font-size: 14px; font-weight: 700; }
+  .hash { font-size: 9px; font-weight: 400; word-break: break-all; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -121,6 +129,11 @@ function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaI
   ${factura.montoLetras ? `<p>Son: ${escapeHtml(factura.montoLetras)}</p>` : ''}
   <p>Método de pago: ${NOMBRE_METODO_PAGO[factura.metodoPago] || factura.metodoPago}</p>
   <div class="separador"></div>
+  <div class="centrado">
+    <img src="${qrDataUrl}" width="130" height="130" alt="Código QR" />
+    <p class="hash">Hash: ${escapeHtml(HASH_GENERICO)}</p>
+  </div>
+  <div class="separador"></div>
   <p class="centrado">¡Gracias por su preferencia!</p>
 </body>
 </html>`
@@ -143,15 +156,17 @@ function obtenerIframeImpresion(): HTMLIFrameElement {
 }
 
 /** Imprime el ticket en la impresora predeterminada de Windows vía el diálogo nativo del navegador. */
-export function imprimirTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaInfo): void {
+export async function imprimirTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaInfo): Promise<void> {
   if (typeof window === 'undefined' || !puedeImprimirTicket(factura.tipo)) return
+
+  const qrDataUrl = await QRCode.toDataURL(QR_GENERICO, { margin: 0, width: 260 })
 
   const iframe = obtenerIframeImpresion()
   const doc = iframe.contentDocument || iframe.contentWindow?.document
   if (!doc) return
 
   doc.open()
-  doc.write(construirHtmlTicket(factura, empresa))
+  doc.write(construirHtmlTicket(factura, empresa, qrDataUrl))
   doc.close()
 
   const disparar = () => {
