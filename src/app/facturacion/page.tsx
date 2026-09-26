@@ -6,6 +6,7 @@ import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { imprimirTicket, puedeImprimirTicket, type TicketEmpresaInfo } from '@/lib/ticket'
 
 const FACTURAS_PAGE_SIZE = 10
 
@@ -13,6 +14,9 @@ interface Cliente {
   id: string
   nombre: string
   dni?: string | null
+  ruc?: string | null
+  carnetExtranjeria?: string | null
+  razonSocial?: string | null
 }
 
 interface Producto {
@@ -60,6 +64,9 @@ interface Factura {
   errors: string | null
   url: string | null
   fechaHora: string | null
+  montoLetras: string | null
+  gravadas: number | null
+  igv: number | null
 }
 
 interface PendienteProducto {
@@ -106,6 +113,7 @@ function FacturacionContent() {
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
+  const [empresa, setEmpresa] = useState<TicketEmpresaInfo>({ nombreEmpresa: 'Spaxión Centro Estético' })
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [guardandoPendiente, setGuardandoPendiente] = useState(false)
@@ -242,19 +250,33 @@ function FacturacionContent() {
                     )}
                   </td>
                   <td className="py-3">
-                    {factura.enviado && factura.url ? (
-                      <a
-                        href={factura.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                        className="rounded-full border border-[#00483f] px-4 py-1.5 text-xs font-bold text-[#00483f] transition hover:bg-[#00483f] hover:text-white"
-                      >
-                        Ver PDF
-                      </a>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {factura.enviado && factura.url ? (
+                        <a
+                          href={factura.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="rounded-full border border-[#00483f] px-4 py-1.5 text-xs font-bold text-[#00483f] transition hover:bg-[#00483f] hover:text-white"
+                        >
+                          Ver PDF
+                        </a>
+                      ) : (
+                        !puedeImprimirTicket(factura.tipo) && <span className="text-slate-400">—</span>
+                      )}
+                      {puedeImprimirTicket(factura.tipo) && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            imprimirTicket(factura, empresa)
+                          }}
+                          className="rounded-full border border-slate-300 px-4 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                        >
+                          Reimprimir
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
                 {expandida && (
@@ -300,24 +322,34 @@ function FacturacionContent() {
   )
 
   const loadData = async () => {
-    const [clientesRes, productosRes, tratamientosRes, facturasRes] = await Promise.all([
+    const [clientesRes, productosRes, tratamientosRes, facturasRes, ajustesRes] = await Promise.all([
       fetch('/api/clientes'),
       fetch('/api/productos'),
       fetch('/api/tratamientos'),
       fetch('/api/facturacion'),
+      fetch('/api/ajustes'),
     ])
 
-    const [clientesData, productosData, tratamientosData, facturasData] = await Promise.all([
+    const [clientesData, productosData, tratamientosData, facturasData, ajustesData] = await Promise.all([
       clientesRes.json(),
       productosRes.json(),
       tratamientosRes.json(),
       facturasRes.json(),
+      ajustesRes.ok ? ajustesRes.json() : Promise.resolve(null),
     ])
 
     setClientes(Array.isArray(clientesData) ? clientesData : [])
     setProductos(Array.isArray(productosData) ? productosData : [])
     setTratamientos(Array.isArray(tratamientosData) ? tratamientosData.filter((t: Tratamiento) => t.activo) : [])
     setFacturas(Array.isArray(facturasData) ? facturasData : [])
+    if (ajustesData) {
+      setEmpresa({
+        nombreEmpresa: ajustesData.nombreEmpresa || 'Spaxión Centro Estético',
+        ruc: ajustesData.ruc || null,
+        razonSocial: ajustesData.razonSocial || null,
+        direccionFiscal: ajustesData.direccionFiscal || null,
+      })
+    }
     setLoading(false)
   }
 
@@ -481,6 +513,10 @@ function FacturacionContent() {
       toast.error(data?.errors || 'La factura se registró, pero falló el envío a SUNAT')
     } else {
       toast.success('Factura registrada correctamente')
+    }
+
+    if (data && puedeImprimirTicket(data.tipo)) {
+      imprimirTicket(data, empresa)
     }
   }
 
