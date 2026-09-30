@@ -38,7 +38,7 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
           >
             <Menu size={20} />
           </button>
-          <BrandLogo compact onDark />
+          <BrandLogo compact />
         </header>
 
         <main className={`transition-all duration-200 ${collapsed ? 'md:pl-20' : 'md:pl-64'}`}>
