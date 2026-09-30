@@ -5,6 +5,9 @@ import { auth } from '@/lib/auth'
 import { obtenerCorrelativo, resolverPrefijo } from '@/lib/correlativos'
 import { numeroALetras } from '@/lib/numeroALetras'
 import { enviarFacturaASunat } from '@/lib/enviarFactura'
+import { CODIGO_SUNAT_TIPO_COMPROBANTE, TIPO_DOCUMENTO_CORRELATIVO } from '@/lib/comprobantes'
+import { hoyPeru, rangoDiaPeru } from '@/lib/fechas'
+import { resolverPagosFactura } from '@/lib/pagos'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,28 +17,17 @@ function round2(value: number) {
 
 const IGV_PORCENTAJE = Number(process.env.IGV_PORCENTAJE || '18')
 
-const CODIGO_SUNAT_TIPO_COMPROBANTE: Record<string, string | null> = {
-  BOLETA: '03',
-  FACTURA: '01',
-  NOTA_VENTA: null,
-}
-
-const TIPO_DOCUMENTO_CORRELATIVO: Record<string, string> = {
-  BOLETA: '03',
-  FACTURA: '01',
-  NOTA_VENTA: '51',
-}
-
 function precioValido(valor: unknown): number | null {
   const n = Number(valor)
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const guard = await requireApiAuth()
   if (guard) return guard
+  const fecha = new URL(req.url).searchParams.get('fecha') || hoyPeru()
   const facturas = await prisma.factura.findMany({
-    where: { activo: true },
+    where: { activo: true, fechaHora: rangoDiaPeru(fecha) },
     include: { cliente: true, items: true },
     orderBy: { creadoAt: 'desc' },
   })
@@ -181,6 +173,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `No hay serie configurada para el tipo de documento ${tipoDocumento}` }, { status: 400 })
   }
 
+  const columnasPago = resolverPagosFactura(total, body.metodoPago, body.pagos)
+  if ('error' in columnasPago) {
+    return NextResponse.json({ error: columnasPago.error }, { status: 400 })
+  }
+
   const factura = await prisma.$transaction(async (tx) => {
     for (const item of items) {
       if (!item.productoId) continue
@@ -209,7 +206,7 @@ export async function POST(req: Request) {
         cliente: { connect: { id: body.clienteId } },
         tipo: tipo as 'BOLETA' | 'FACTURA' | 'NOTA_VENTA',
         total,
-        metodoPago: body.metodoPago || 'EFECTIVO',
+        metodoPago: columnasPago.metodoPago as 'EFECTIVO' | 'TARJETA' | 'YAPE' | 'PLIN' | 'TRANSFERENCIA' | 'DEPOSITO' | 'MIXTO',
         estado: body.estado || 'PAGADO',
         items: {
           create: items.map((item: any) => {
@@ -228,11 +225,11 @@ export async function POST(req: Request) {
         enviado: false,
         usuario: { connect: { id: session.user.id } },
         ruc: configuracion.ruc,
-        pagoEfectivo: body.metodoPago === 'EFECTIVO' ? total : null,
-        pagoTarjeta: body.metodoPago === 'TARJETA' ? total : null,
-        pagoYape: ['YAPE', 'PLIN'].includes(body.metodoPago) ? total : null,
-        pagoTransferencia: body.metodoPago === 'TRANSFERENCIA' ? total : null,
-        pagoDeposito: body.metodoPago === 'DEPOSITO' ? total : null,
+        pagoEfectivo: columnasPago.pagoEfectivo,
+        pagoTarjeta: columnasPago.pagoTarjeta,
+        pagoYape: columnasPago.pagoYape,
+        pagoTransferencia: columnasPago.pagoTransferencia,
+        pagoDeposito: columnasPago.pagoDeposito,
       },
       include: { cliente: true, items: true },
     })

@@ -26,6 +26,11 @@ export interface TicketFacturaInfo {
   montoLetras?: string | null
   cliente: TicketClienteInfo
   items: TicketItemInfo[]
+  pagoEfectivo?: number | null
+  pagoTarjeta?: number | null
+  pagoYape?: number | null
+  pagoTransferencia?: number | null
+  pagoDeposito?: number | null
 }
 
 export interface TicketEmpresaInfo {
@@ -47,6 +52,7 @@ const NOMBRE_METODO_PAGO: Record<string, string> = {
   PLIN: 'Plin',
   TRANSFERENCIA: 'Transferencia',
   DEPOSITO: 'Depósito en cuenta',
+  MIXTO: 'Mixto',
 }
 
 /** Solo boletas y facturas se imprimen como ticket; las notas de venta no llevan comprobante SUNAT. */
@@ -82,6 +88,19 @@ function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaI
       <span>S/ ${item.total.toFixed(2)}</span>
     </div>
   `).join('')
+
+  const desglosePago = factura.metodoPago === 'MIXTO'
+    ? [
+        ['Efectivo', factura.pagoEfectivo],
+        ['Tarjeta', factura.pagoTarjeta],
+        ['Yape/Plin', factura.pagoYape],
+        ['Transferencia', factura.pagoTransferencia],
+        ['Depósito', factura.pagoDeposito],
+      ]
+        .filter((fila): fila is [string, number] => typeof fila[1] === 'number' && fila[1] > 0)
+        .map(([nombre, monto]) => `<div class="fila"><span>${nombre}</span><span>S/ ${monto.toFixed(2)}</span></div>`)
+        .join('')
+    : ''
 
   return `<!DOCTYPE html>
 <html>
@@ -128,6 +147,7 @@ function construirHtmlTicket(factura: TicketFacturaInfo, empresa: TicketEmpresaI
   <div class="fila total"><span>TOTAL</span><span>S/ ${factura.total.toFixed(2)}</span></div>
   ${factura.montoLetras ? `<p>Son: ${escapeHtml(factura.montoLetras)}</p>` : ''}
   <p>Método de pago: ${NOMBRE_METODO_PAGO[factura.metodoPago] || factura.metodoPago}</p>
+  ${desglosePago}
   <div class="separador"></div>
   <div class="centrado">
     <img src="${qrDataUrl}" width="130" height="130" alt="Código QR" />

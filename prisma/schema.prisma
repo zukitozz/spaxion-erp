@@ -21,6 +21,9 @@ model User {
   tratamientosRealizados AtencionTratamiento[]  @relation("AtencionesEsteticista")
   cabinaEstadoLogs       CabinaEstadoLog[]
   movimientosInventario  MovimientoInventario[]
+  paquetes               Paquete[]
+  gastos                 Gasto[]
+  paqueteSesiones        PaqueteSesion[]
 }
 
 enum UserRole {
@@ -48,6 +51,7 @@ model Cliente {
   citas                      Cita[]
   facturas                   Factura[]
   atenciones                 Atencion[]
+  paquetes                   Paquete[]
   createdAt                  DateTime   @default(now())
 }
 
@@ -163,17 +167,17 @@ model AtencionTratamiento {
 }
 
 model AtencionProducto {
-  id         String   @id @default(uuid())
-  atencion   Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
-  atencionId String
-  producto   Producto @relation(fields: [productoId], references: [id])
-  productoId String
-  cantidad   Int      @default(1)
-  precioUnit Float
+  id             String   @id @default(uuid())
+  atencion       Atencion @relation(fields: [atencionId], references: [id], onDelete: Cascade)
+  atencionId     String
+  producto       Producto @relation(fields: [productoId], references: [id])
+  productoId     String
+  cantidad       Int      @default(1)
+  precioUnit     Float
   // Precio del catálogo (Producto.precioVenta) en el momento en que se agregó, para poder
   // evidenciar si precioUnit fue modificado respecto al catálogo.
   precioCatalogo Float?
-  creadoAt   DateTime @default(now())
+  creadoAt       DateTime @default(now())
 
   factura   Factura? @relation(fields: [facturaId], references: [id])
   facturaId String?
@@ -266,6 +270,7 @@ model Tratamiento {
   creadoAt               DateTime              @default(now())
   insumos                TratamientoProducto[]
   atenciones             AtencionTratamiento[]
+  paquetes               Paquete[]
 }
 
 model TratamientoProducto {
@@ -332,6 +337,19 @@ model Factura {
   igv                         Float?
   xmlEnvio                    String?
   impresion                   Int          @default(1)
+
+  // Pagos parciales por paquete (ver modelo Paquete): las NOTA_VENTA de abono y el
+  // comprobante final consolidador comparten el mismo paqueteId.
+  cuentaParaCierre   Boolean   @default(true)
+  paquete            Paquete?  @relation(fields: [paqueteId], references: [id])
+  paqueteId          String?
+  // Solo se usa en las notas de venta absorbidas por el comprobante final del paquete:
+  // apunta a la Factura (BOLETA/FACTURA) que las consolidó, para no duplicar su monto en reportes.
+  comprobanteFinal   Factura?  @relation("PaqueteNotaAbsorbida", fields: [comprobanteFinalId], references: [id])
+  comprobanteFinalId String?
+  notasAbsorbidas    Factura[] @relation("PaqueteNotaAbsorbida")
+
+  @@index([paqueteId])
 }
 
 enum FacturaTipo {
@@ -347,6 +365,52 @@ enum MetodoPago {
   PLIN
   TRANSFERENCIA
   DEPOSITO
+  MIXTO
+}
+
+enum PaqueteEstado {
+  ABIERTO
+  CERRADO
+}
+
+// Paquete de sesiones pagado en abonos (montos irregulares). Cada abono genera una
+// Factura tipo NOTA_VENTA vinculada (paqueteId); al completar el pago se emite un
+// comprobante final (BOLETA/FACTURA) que consolida los abonos seleccionados.
+model Paquete {
+  id            String        @id @default(uuid())
+  cliente       Cliente       @relation(fields: [clienteId], references: [id])
+  clienteId     String
+  tratamiento   Tratamiento?  @relation(fields: [tratamientoId], references: [id])
+  tratamientoId String?
+  nombre        String
+  sesionesTotal Int
+  precioTotal   Float
+  estado        PaqueteEstado @default(ABIERTO)
+  activo        Boolean       @default(true)
+  usuario       User?         @relation(fields: [usuarioId], references: [id])
+  usuarioId     String?
+  creadoAt      DateTime      @default(now())
+  cerradoAt     DateTime?
+  facturas      Factura[]
+  sesiones      PaqueteSesion[]
+
+  @@index([clienteId])
+}
+
+// Registro de cada sesión que el cliente va tomando dentro de un Paquete (independiente de los
+// abonos: el pago y el avance de sesiones no siempre van a la par).
+model PaqueteSesion {
+  id        String   @id @default(uuid())
+  paquete   Paquete  @relation(fields: [paqueteId], references: [id])
+  paqueteId String
+  numero    Int
+  fecha     DateTime @default(now())
+  notas     String?
+  usuario   User?    @relation(fields: [usuarioId], references: [id])
+  usuarioId String?
+  creadoAt  DateTime @default(now())
+
+  @@index([paqueteId])
 }
 
 model FacturaItem {
@@ -416,6 +480,25 @@ model Serie {
   serie           String  @db.VarChar(3)
   estado          Int     @default(1)
   descripcion     String? @db.VarChar(200)
+}
+
+// Gasto/compra registrado por el gerente (solo rol SUPERVISOR), usado para el reporte mensual
+// de ingresos vs. gastos.
+model Gasto {
+  id                String   @id @default(uuid())
+  concepto          String
+  categoria         String?
+  monto             Float
+  fecha             DateTime
+  proveedor         String?
+  numeroComprobante String?
+  notas             String?
+  usuario           User?    @relation(fields: [usuarioId], references: [id])
+  usuarioId         String?
+  activo            Boolean  @default(true)
+  creadoAt          DateTime @default(now())
+
+  @@index([fecha])
 }
 
 model Correlativo {

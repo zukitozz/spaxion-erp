@@ -6,6 +6,7 @@ import { signOut, useSession } from 'next-auth/react'
 import {
   BarChart3,
   Boxes,
+  Cake,
   CalendarCheck,
   Camera,
   DoorClosed,
@@ -17,10 +18,12 @@ import {
   PhoneCall,
   Receipt,
   Settings,
+  Package,
   ShoppingBag,
   Sparkles,
   UserCog,
   Users,
+  Wallet,
   X,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -33,13 +36,16 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: STAFF },
   { href: '/clientes', label: 'Clientes', icon: Users, roles: STAFF },
   { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall, roles: STAFF },
+  { href: '/cumpleanos', label: 'Cumpleaños', icon: Cake, roles: STAFF },
   { href: '/citas', label: 'Citas', icon: CalendarCheck, roles: STAFF },
   { href: '/cabinas', label: 'Cabinas', icon: DoorClosed, roles: ['SUPERVISOR'] },
   { href: '/bandeja', label: 'Bandeja de Atención', icon: Camera, roles: ['ESTETICISTA'] },
   { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['SUPERVISOR'] },
   { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['SUPERVISOR'] },
   { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['SUPERVISOR'] },
+  { href: '/gastos', label: 'Gastos', icon: Wallet, roles: ['SUPERVISOR'] },
   { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
+  { href: '/paquetes', label: 'Paquetes', icon: Package, roles: STAFF },
   { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
   { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/usuarios', label: 'Usuarios', icon: UserCog, roles: ['SUPERVISOR'] },
@@ -88,7 +94,7 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
         } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       >
         <div className="flex items-center gap-2 border-b border-[#c19a4b]/30 p-4">
-          {!collapsed && <BrandLogo compact onDark />}
+          {!collapsed && <BrandLogo compact />}
           <button
             type="button"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}

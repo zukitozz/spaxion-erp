@@ -49,7 +49,7 @@ function LoginForm() {
           <path d="M300 158c-18 23-25 48-18 76" />
         </svg>
 
-        <BrandLogo onDark />
+        <BrandLogo />
 
         <div className="relative z-10 max-w-md">
           <p className="font-display text-2xl font-semibold leading-snug text-[#fffdf7] sm:text-3xl">

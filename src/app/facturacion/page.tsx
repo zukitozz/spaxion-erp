@@ -67,6 +67,11 @@ interface Factura {
   montoLetras: string | null
   gravadas: number | null
   igv: number | null
+  pagoEfectivo: number | null
+  pagoTarjeta: number | null
+  pagoYape: number | null
+  pagoTransferencia: number | null
+  pagoDeposito: number | null
 }
 
 interface PendienteProducto {
@@ -94,6 +99,33 @@ interface Pendiente {
 
 const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', tratamientoId: '', nombre: '', cantidad: 1, precioUnit: 0 })
 
+const createInitialPago = () => ({ id: crypto.randomUUID(), metodo: 'EFECTIVO', monto: '' })
+
+const metodoPagoLabels: Record<string, string> = {
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  YAPE: 'Yape',
+  PLIN: 'Plin',
+  TRANSFERENCIA: 'Transferencia',
+  DEPOSITO: 'Depósito',
+  MIXTO: 'Mixto',
+}
+
+function desglosePago(factura: Pick<Factura, 'pagoEfectivo' | 'pagoTarjeta' | 'pagoYape' | 'pagoTransferencia' | 'pagoDeposito'>) {
+  return [
+    ['Efectivo', factura.pagoEfectivo],
+    ['Tarjeta', factura.pagoTarjeta],
+    ['Yape/Plin', factura.pagoYape],
+    ['Transferencia', factura.pagoTransferencia],
+    ['Depósito', factura.pagoDeposito],
+  ].filter((fila): fila is [string, number] => typeof fila[1] === 'number' && fila[1] > 0)
+}
+
+function hoyISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** true si el precio acordado difiere del precio de catálogo (no es un descuento, es un cambio de precio base). */
 function precioFueModificado(precio: number, precioCatalogo: number) {
   return Math.abs(precio - precioCatalogo) > 0.005
@@ -117,15 +149,19 @@ function FacturacionContent() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [guardandoPendiente, setGuardandoPendiente] = useState(false)
+  const [reenviandoId, setReenviandoId] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     clienteId: searchParams.get('clienteId') || '',
     tipo: 'BOLETA',
     metodoPago: 'EFECTIVO',
+    pagoMixto: false,
+    pagos: [createInitialPago()],
     items: [createInitialItem()],
   })
   const [busquedaFactura, setBusquedaFactura] = useState('')
   const [paginaFactura, setPaginaFactura] = useState(1)
+  const [fechaFactura, setFechaFactura] = useState(() => hoyISO())
 
   const [clienteQuery, setClienteQuery] = useState('')
   const [showClienteDropdown, setShowClienteDropdown] = useState(false)
@@ -169,6 +205,8 @@ function FacturacionContent() {
   const subtotal = subtotalPendientes + subtotalManual
   const total = subtotal
 
+  const pagosDescuadrados = form.pagoMixto && Math.abs(total - form.pagos.reduce((sum, p) => sum + (Number(p.monto) || 0), 0)) > 0.01
+
   const clientesFiltrados = useMemo(() => {
     const query = clienteQuery.trim().toLowerCase()
     if (!query) return []
@@ -196,7 +234,7 @@ function FacturacionContent() {
   const recentInvoices = loading ? (
     <p className="flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando facturas...</p>
   ) : facturasPagina.length === 0 ? (
-    <p className="text-sm text-slate-500">{facturas.length === 0 ? 'No hay facturas registradas todavía.' : 'No se encontraron facturas.'}</p>
+    <p className="text-sm text-slate-500">{facturas.length === 0 ? 'No hay facturas registradas para este día.' : 'No se encontraron facturas.'}</p>
   ) : (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-sm">
@@ -234,6 +272,18 @@ function FacturacionContent() {
                     {factura.numeracionComprobante || 'Sin comprobante'}
                     {algunPrecioModificado && (
                       <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Precio modificado</span>
+                    )}
+                    {factura.metodoPago === 'MIXTO' ? (
+                      <span
+                        title={desglosePago(factura).map(([nombre, monto]) => `${nombre}: S/ ${monto.toFixed(2)}`).join(' · ')}
+                        className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-800"
+                      >
+                        Mixto
+                      </span>
+                    ) : (
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        {metodoPagoLabels[factura.metodoPago] || factura.metodoPago}
+                      </span>
                     )}
                   </td>
                   <td className="py-3 pr-4 text-right font-semibold text-[#173d36]">S/ {factura.total.toFixed(2)}</td>
@@ -274,6 +324,19 @@ function FacturacionContent() {
                           className="rounded-full border border-slate-300 px-4 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
                         >
                           Reimprimir
+                        </button>
+                      )}
+                      {!factura.enviado && factura.tipo !== 'NOTA_VENTA' && (
+                        <button
+                          type="button"
+                          disabled={reenviandoId === factura.id}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            void handleReenviar(factura.id)
+                          }}
+                          className="rounded-full border border-rose-300 px-4 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                        >
+                          {reenviandoId === factura.id ? 'Reenviando...' : 'Reenviar a SUNAT'}
                         </button>
                       )}
                     </div>
@@ -321,27 +384,31 @@ function FacturacionContent() {
     </div>
   )
 
+  const loadFacturas = async (fecha: string) => {
+    const res = await fetch(`/api/facturacion?fecha=${fecha}`)
+    const data = await res.json()
+    setFacturas(Array.isArray(data) ? data : [])
+    setLoading(false)
+  }
+
   const loadData = async () => {
-    const [clientesRes, productosRes, tratamientosRes, facturasRes, ajustesRes] = await Promise.all([
+    const [clientesRes, productosRes, tratamientosRes, ajustesRes] = await Promise.all([
       fetch('/api/clientes'),
       fetch('/api/productos'),
       fetch('/api/tratamientos'),
-      fetch('/api/facturacion'),
       fetch('/api/ajustes'),
     ])
 
-    const [clientesData, productosData, tratamientosData, facturasData, ajustesData] = await Promise.all([
+    const [clientesData, productosData, tratamientosData, ajustesData] = await Promise.all([
       clientesRes.json(),
       productosRes.json(),
       tratamientosRes.json(),
-      facturasRes.json(),
       ajustesRes.ok ? ajustesRes.json() : Promise.resolve(null),
     ])
 
     setClientes(Array.isArray(clientesData) ? clientesData : [])
     setProductos(Array.isArray(productosData) ? productosData : [])
     setTratamientos(Array.isArray(tratamientosData) ? tratamientosData.filter((t: Tratamiento) => t.activo) : [])
-    setFacturas(Array.isArray(facturasData) ? facturasData : [])
     if (ajustesData) {
       setEmpresa({
         nombreEmpresa: ajustesData.nombreEmpresa || 'Spaxión Centro Estético',
@@ -350,12 +417,17 @@ function FacturacionContent() {
         direccionFiscal: ajustesData.direccionFiscal || null,
       })
     }
-    setLoading(false)
   }
 
   useEffect(() => {
     void loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    void loadFacturas(fechaFactura)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaFactura])
 
   useEffect(() => {
     setPreciosTratamientoOverride({})
@@ -458,6 +530,8 @@ function FacturacionContent() {
       clienteId: '',
       tipo: 'BOLETA',
       metodoPago: 'EFECTIVO',
+      pagoMixto: false,
+      pagos: [createInitialPago()],
       items: [createInitialItem()],
     })
     setClienteQuery('')
@@ -494,6 +568,7 @@ function FacturacionContent() {
         preciosProducto,
         tipo: form.tipo,
         metodoPago: form.metodoPago,
+        pagos: form.pagoMixto ? form.pagos.map((p) => ({ metodo: p.metodo, monto: Number(p.monto) || 0 })) : undefined,
         items: itemsValidos,
       }),
     })
@@ -517,6 +592,26 @@ function FacturacionContent() {
 
     if (data && puedeImprimirTicket(data.tipo)) {
       await imprimirTicket(data, empresa)
+    }
+  }
+
+  const handleReenviar = async (facturaId: string) => {
+    setReenviandoId(facturaId)
+    try {
+      const response = await fetch('/api/facturacion/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ facturaId }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        toast.error(data?.error || 'No se pudo reenviar el comprobante a SUNAT')
+        return
+      }
+      toast.success('Comprobante reenviado correctamente')
+      await loadData()
+    } finally {
+      setReenviandoId(null)
     }
   }
 
@@ -758,20 +853,90 @@ function FacturacionContent() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="factura-metodo-pago" className="block text-sm font-medium text-slate-700">Método de pago</label>
-                  <select
-                    id="factura-metodo-pago"
-                    value={form.metodoPago}
-                    onChange={(event) => setForm((prev) => ({ ...prev, metodoPago: event.target.value }))}
-                    className="field mt-2"
-                  >
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="TARJETA">Tarjeta</option>
-                    <option value="YAPE">Yape</option>
-                    <option value="PLIN">Plin</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="DEPOSITO">Depósito en cuenta</option>
-                  </select>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="factura-metodo-pago" className="block text-sm font-medium text-slate-700">Método de pago</label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={form.pagoMixto}
+                        onChange={(event) => setForm((prev) => ({ ...prev, pagoMixto: event.target.checked, pagos: [createInitialPago()] }))}
+                      />
+                      Pago con métodos combinados
+                    </label>
+                  </div>
+                  {!form.pagoMixto ? (
+                    <select
+                      id="factura-metodo-pago"
+                      value={form.metodoPago}
+                      onChange={(event) => setForm((prev) => ({ ...prev, metodoPago: event.target.value }))}
+                      className="field mt-2"
+                    >
+                      <option value="EFECTIVO">Efectivo</option>
+                      <option value="TARJETA">Tarjeta</option>
+                      <option value="YAPE">Yape</option>
+                      <option value="PLIN">Plin</option>
+                      <option value="TRANSFERENCIA">Transferencia</option>
+                      <option value="DEPOSITO">Depósito en cuenta</option>
+                    </select>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {form.pagos.map((pago, index) => (
+                        <div key={pago.id} className="flex items-center gap-2">
+                          <select
+                            value={pago.metodo}
+                            onChange={(event) => setForm((prev) => ({
+                              ...prev,
+                              pagos: prev.pagos.map((p, i) => (i === index ? { ...p, metodo: event.target.value } : p)),
+                            }))}
+                            className="field bg-white"
+                          >
+                            <option value="EFECTIVO">Efectivo</option>
+                            <option value="TARJETA">Tarjeta</option>
+                            <option value="YAPE">Yape</option>
+                            <option value="PLIN">Plin</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                            <option value="DEPOSITO">Depósito en cuenta</option>
+                          </select>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            placeholder="Monto"
+                            value={pago.monto}
+                            onChange={(event) => setForm((prev) => ({
+                              ...prev,
+                              pagos: prev.pagos.map((p, i) => (i === index ? { ...p, monto: event.target.value } : p)),
+                            }))}
+                            className="field w-28 bg-white"
+                          />
+                          {form.pagos.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((prev) => ({ ...prev, pagos: prev.pagos.filter((_, i) => i !== index) }))}
+                              className="text-xs font-semibold text-rose-600"
+                            >✕</button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, pagos: [...prev.pagos, createInitialPago()] }))}
+                        className="text-xs font-semibold text-emerald-700"
+                      >+ Agregar método</button>
+                      {(() => {
+                        const asignado = form.pagos.reduce((sum, p) => sum + (Number(p.monto) || 0), 0)
+                        const diferencia = Math.round((total - asignado) * 100) / 100
+                        if (Math.abs(diferencia) <= 0.01) {
+                          return <p className="text-xs font-semibold text-emerald-700">Los montos cuadran con el total.</p>
+                        }
+                        return (
+                          <p className="text-xs font-semibold text-amber-700">
+                            {diferencia > 0 ? `Falta asignar S/ ${diferencia.toFixed(2)}` : `Sobra S/ ${Math.abs(diferencia).toFixed(2)}`}
+                          </p>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -857,7 +1022,7 @@ function FacturacionContent() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  disabled={submitting || !form.clienteId || subtotal === 0}
+                  disabled={submitting || !form.clienteId || subtotal === 0 || pagosDescuadrados}
                   onClick={() => void handleSubmit()}
                   className="btn-brand flex flex-1 items-center justify-center gap-2 disabled:opacity-60"
                 >
@@ -882,15 +1047,23 @@ function FacturacionContent() {
           )}
 
           <div className="card-surface">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold text-[#173d36]">Facturas recientes</h2>
-              <button
-                type="button"
-                onClick={() => setMostrarFormulario(true)}
-                className="rounded-full bg-[#00483f] px-5 py-2 text-sm font-bold text-white transition hover:brightness-110"
-              >
-                + Nueva factura
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-[#173d36]">Facturas del día</h2>
+              <div className="flex items-center gap-3">
+                <input
+                  type="date"
+                  value={fechaFactura}
+                  onChange={(event) => setFechaFactura(event.target.value)}
+                  className="field"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarFormulario(true)}
+                  className="rounded-full bg-[#00483f] px-5 py-2 text-sm font-bold text-white transition hover:brightness-110"
+                >
+                  + Nueva factura
+                </button>
+              </div>
             </div>
 
             <input

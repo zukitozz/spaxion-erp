@@ -128,7 +128,10 @@ export default function ReportesPage() {
           <p className="eyebrow">Reportes</p>
           <h1 className="mt-3 page-heading text-3xl">Cierres de turno</h1>
           <p className="mt-2 text-slate-600">Solo para gerente: revisa cierres históricos de caja y métricas.</p>
-          <Link href="/historico/atenciones" className="btn-brand mt-5 inline-flex">Ver histórico de atenciones</Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link href="/historico/atenciones" className="btn-brand inline-flex">Ver histórico de atenciones</Link>
+            <Link href="/reportes/mensual" className="btn-brand inline-flex">Ver reporte mensual</Link>
+          </div>
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
