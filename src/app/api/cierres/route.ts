@@ -7,10 +7,18 @@ import { obtenerFacturasPendientes, calcularTotales } from '@/lib/cierres'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const guard = await requireApiAuth(['SUPERVISOR'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
+
+  const session = await auth()
+  // Admin cierra turno y solo necesita el preview reciente; Gerente ve la reportería completa.
+  const esAdmin = session?.user?.role === 'ADMIN'
+
   const cierres = await prisma.cierreTurno.findMany({
-    where: { activo: true },
+    where: {
+      activo: true,
+      ...(esAdmin ? { fechaFin: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } : {}),
+    },
     include: { usuario: true },
     orderBy: { fechaFin: 'desc' },
   })
@@ -19,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const guard = await requireApiAuth(['SUPERVISOR'])
+  const guard = await requireApiAuth(['ADMIN'])
   if (guard) return guard
 
   const session = await auth()
@@ -70,7 +78,7 @@ export async function POST() {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireApiAuth(['SUPERVISOR'])
+  const guard = await requireApiAuth(['ADMIN'])
   if (guard) return guard
   const url = new URL(req.url)
   const id = url.searchParams.get('id')

@@ -5,7 +5,7 @@ import { authConfig } from '@/lib/auth.config'
 const { auth } = NextAuth(authConfig)
 
 const ESTETICISTA_ALLOWED = ['/bandeja']
-const ADMIN_BLOCKED = ['/cabinas', '/usuarios', '/reportes', '/ajustes', '/inventario', '/productos', '/tratamientos', '/gastos']
+const ADMIN_BLOCKED = ['/cabinas', '/usuarios', '/reportes/mensual', '/ajustes', '/inventario', '/productos', '/tratamientos', '/gastos']
 
 function coincide(pathname: string, prefijos: string[]) {
   return prefijos.some((prefijo) => pathname === prefijo || pathname.startsWith(`${prefijo}/`))

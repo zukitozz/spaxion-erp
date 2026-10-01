@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { Spinner } from '@/components/Spinner'
 import { useToast } from '@/components/Toast'
 
@@ -50,23 +51,25 @@ const metodoLabels: Record<string, string> = {
 
 export default function ReportesPage() {
   const toast = useToast()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
   const [cierres, setCierres] = useState<CierreTurno[]>([])
   const [pendientes, setPendientes] = useState<Pendientes | null>(null)
   const [loading, setLoading] = useState(true)
   const [cerrando, setCerrando] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const [cierresRes, pendientesRes] = await Promise.all([
       fetch('/api/cierres'),
-      fetch('/api/cierres/pendientes'),
+      isAdmin ? fetch('/api/cierres/pendientes') : Promise.resolve(null),
     ])
-    const [cierresData, pendientesData] = await Promise.all([cierresRes.json(), pendientesRes.json()])
+    const cierresData = await cierresRes.json()
     setCierres(Array.isArray(cierresData) ? cierresData : [])
-    setPendientes(pendientesData)
+    setPendientes(pendientesRes ? await pendientesRes.json() : null)
     setLoading(false)
-  }
+  }, [isAdmin])
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => { if (session) void load() }, [session, load])
 
   const totalVentas = useMemo(() => cierres.reduce((sum, item) => sum + item.totalVentas, 0), [cierres])
   const totalEfectivo = useMemo(() => cierres.reduce((sum, item) => sum + item.totalEfectivo, 0), [cierres])
@@ -127,67 +130,73 @@ export default function ReportesPage() {
         <div className="card-surface">
           <p className="eyebrow">Reportes</p>
           <h1 className="mt-3 page-heading text-3xl">Cierres de turno</h1>
-          <p className="mt-2 text-slate-600">Solo para gerente: revisa cierres históricos de caja y métricas.</p>
+          <p className="mt-2 text-slate-600">
+            {isAdmin
+              ? 'Cierra el turno actual y revisa los cierres de las últimas 24 horas.'
+              : 'Revisa el historial completo de cierres de caja y métricas.'}
+          </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/historico/atenciones" className="btn-brand inline-flex">Ver histórico de atenciones</Link>
-            <Link href="/reportes/mensual" className="btn-brand inline-flex">Ver reporte mensual</Link>
+            {!isAdmin && <Link href="/reportes/mensual" className="btn-brand inline-flex">Ver reporte mensual</Link>}
           </div>
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
-          <div className="card-surface lg:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold text-emerald-900">Cobros pendientes de cerrar</h2>
-              <button
-                type="button"
-                disabled={cerrando || !pendientes || pendientes.facturas.length === 0}
-                onClick={() => void cerrarTurno()}
-                className="btn-brand flex items-center gap-2 disabled:opacity-60"
-              >
-                {cerrando && <Spinner />}
-                {cerrando ? 'Cerrando...' : 'Cerrar turno'}
-              </button>
-            </div>
+          {isAdmin && (
+            <div className="card-surface lg:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold text-emerald-900">Cobros pendientes de cerrar</h2>
+                <button
+                  type="button"
+                  disabled={cerrando || !pendientes || pendientes.facturas.length === 0}
+                  onClick={() => void cerrarTurno()}
+                  className="btn-brand flex items-center gap-2 disabled:opacity-60"
+                >
+                  {cerrando && <Spinner />}
+                  {cerrando ? 'Cerrando...' : 'Cerrar turno'}
+                </button>
+              </div>
 
-            {!pendientes || pendientes.facturas.length === 0 ? (
-              <p className="mt-5 text-sm text-slate-500">No hay cobros pendientes de cerrar en este momento.</p>
-            ) : (
-              <>
-                <p className="mt-2 text-sm text-slate-500">
-                  Desde {pendientes.fechaDesde ? new Date(pendientes.fechaDesde).toLocaleString('es-PE') : '—'} · {pendientes.facturas.length} comprobante(s) · Total S/ {pendientes.total.toFixed(2)}
-                </p>
+              {!pendientes || pendientes.facturas.length === 0 ? (
+                <p className="mt-5 text-sm text-slate-500">No hay cobros pendientes de cerrar en este momento.</p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Desde {pendientes.fechaDesde ? new Date(pendientes.fechaDesde).toLocaleString('es-PE') : '—'} · {pendientes.facturas.length} comprobante(s) · Total S/ {pendientes.total.toFixed(2)}
+                  </p>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                  {Object.entries(pendientes.totalesPorMetodo).map(([metodo, valor]) => (
-                    <div key={metodo} className="rounded-3xl bg-slate-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{metodoLabels[metodo] || metodo}</p>
-                      <p className="mt-2 text-lg font-semibold text-emerald-900">S/ {valor.toFixed(2)}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-5 max-h-72 space-y-2 overflow-y-auto">
-                  {pendientes.facturas.map((factura) => (
-                    <div key={factura.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm">
-                      <div>
-                        <p className="font-medium text-slate-900">{factura.cliente.nombre}</p>
-                        <p className="text-xs text-slate-500">{new Date(factura.creadoAt).toLocaleString('es-PE')} · {factura.tipo} · {metodoLabels[factura.metodoPago] || factura.metodoPago}</p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {Object.entries(pendientes.totalesPorMetodo).map(([metodo, valor]) => (
+                      <div key={metodo} className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{metodoLabels[metodo] || metodo}</p>
+                        <p className="mt-2 text-lg font-semibold text-emerald-900">S/ {valor.toFixed(2)}</p>
                       </div>
-                      <span className="font-semibold text-slate-700">S/ {factura.total.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 max-h-72 space-y-2 overflow-y-auto">
+                    {pendientes.facturas.map((factura) => (
+                      <div key={factura.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm">
+                        <div>
+                          <p className="font-medium text-slate-900">{factura.cliente.nombre}</p>
+                          <p className="text-xs text-slate-500">{new Date(factura.creadoAt).toLocaleString('es-PE')} · {factura.tipo} · {metodoLabels[factura.metodoPago] || factura.metodoPago}</p>
+                        </div>
+                        <span className="font-semibold text-slate-700">S/ {factura.total.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="card-surface">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm text-slate-500">Últimos cierres</p>
+                <p className="text-sm text-slate-500">{isAdmin ? 'Cierres (24h)' : 'Últimos cierres'}</p>
                 <h2 className="mt-2 page-heading text-3xl">{cierres.length}</h2>
               </div>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Gerente</span>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">{isAdmin ? 'Admin' : 'Gerente'}</span>
             </div>
 
             <div className="mt-6 space-y-4">

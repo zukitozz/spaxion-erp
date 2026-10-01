@@ -32,7 +32,7 @@ import { ROLE_LABELS, type UserRole } from '@/types/user'
 
 const STAFF: UserRole[] = ['ADMIN', 'SUPERVISOR']
 
-const navigation: { href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[] }[] = [
+const navigation: { href: string; label: string; icon: typeof LayoutDashboard; roles: UserRole[]; roleLabels?: Partial<Record<UserRole, string>> }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: STAFF },
   { href: '/clientes', label: 'Clientes', icon: Users, roles: STAFF },
   { href: '/seguimiento', label: 'Seguimiento', icon: PhoneCall, roles: STAFF },
@@ -46,7 +46,7 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/gastos', label: 'Gastos', icon: Wallet, roles: ['SUPERVISOR'] },
   { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
   { href: '/paquetes', label: 'Paquetes', icon: Package, roles: STAFF },
-  { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: ['SUPERVISOR'] },
+  { href: '/reportes', label: 'Reportes', icon: BarChart3, roles: STAFF, roleLabels: { ADMIN: 'Cierre de turno' } },
   { href: '/historico/atenciones', label: 'Histórico de Atenciones', icon: History, roles: ['ADMIN', 'SUPERVISOR'] },
   { href: '/usuarios', label: 'Usuarios', icon: UserCog, roles: ['SUPERVISOR'] },
   { href: '/ajustes', label: 'Ajustes', icon: Settings, roles: ['SUPERVISOR'] },
@@ -117,18 +117,19 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
           {items.map((item) => {
             const Icon = item.icon
             const isActive = item.href === activeHref
+            const label = (role && item.roleLabels?.[role]) || item.label
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={onCloseMobile}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? label : undefined}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
                   isActive ? 'bg-[#c19a4b] font-semibold text-[#173d36]' : 'text-[#d8e4dc] hover:bg-[#17665a] hover:text-white'
                 }`}
               >
                 <Icon size={20} className="shrink-0" />
-                <span className={collapsed ? 'hidden' : 'truncate'}>{item.label}</span>
+                <span className={collapsed ? 'hidden' : 'truncate'}>{label}</span>
               </Link>
             )
           })}
