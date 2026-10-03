@@ -20,9 +20,19 @@ export function rangoMesPeru(mes: string) {
 }
 
 export function hoyPeru(): string {
-  const ahoraPeru = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Lima' }))
-  const y = ahoraPeru.getFullYear()
-  const m = String(ahoraPeru.getMonth() + 1).padStart(2, '0')
-  const d = String(ahoraPeru.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  return fechaPeru(new Date())
+}
+
+/** Fecha 'YYYY-MM-DD' de un instante, vista en hora peruana (en-CA formatea como YYYY-MM-DD). */
+export function fechaPeru(fecha: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(fecha)
+}
+
+export function mesActualPeru(): string {
+  return hoyPeru().slice(0, 7)
+}
+
+/** Mediodía peruano de un 'YYYY-MM-DD': evita que la fecha salte de día al cambiar de zona horaria. */
+export function mediodiaPeru(fecha: string): Date {
+  return new Date(`${fecha.slice(0, 10)}T12:00:00${OFFSET_PERU}`)
 }

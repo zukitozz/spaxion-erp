@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
 import { cambiarEstadoCabina } from '@/lib/cabinas'
+import { rangoDiaPeru } from '@/lib/fechas'
+import { urlFirmada } from '@/lib/storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,10 +25,12 @@ const include = {
 
 type LineaConAtencion = Prisma.AtencionTratamientoGetPayload<{ include: typeof include }>
 
-function aplanar(linea: LineaConAtencion) {
+async function aplanar(linea: LineaConAtencion) {
   const { atencion, ...resto } = linea
+  // El bucket es privado: se devuelve una URL firmada por foto en lugar de la key de S3.
+  const fotos = await Promise.all(atencion.fotos.map(async ({ key, ...foto }) => ({ ...foto, url: await urlFirmada(key) })))
   // resto.id (línea de tratamiento) debe prevalecer sobre atencion.id (la visita).
-  return { ...atencion, ...resto, atencionId: atencion.id }
+  return { ...atencion, fotos, ...resto, atencionId: atencion.id }
 }
 
 const PAGE_SIZE_DEFAULT = 15
@@ -54,8 +58,8 @@ export async function GET(req: Request) {
     ...(desde || hasta
       ? {
           horaInicio: {
-            ...(desde ? { gte: new Date(desde) } : {}),
-            ...(hasta ? { lte: new Date(hasta) } : {}),
+            ...(desde ? { gte: rangoDiaPeru(desde).gte } : {}),
+            ...(hasta ? { lte: rangoDiaPeru(hasta).lte } : {}),
           },
         }
       : {}),
@@ -80,7 +84,7 @@ export async function GET(req: Request) {
     prisma.atencionTratamiento.count({ where }),
   ])
 
-  return NextResponse.json({ items: atenciones.map(aplanar), total, page, pageSize })
+  return NextResponse.json({ items: await Promise.all(atenciones.map(aplanar)), total, page, pageSize })
 }
 
 export async function POST(req: Request) {

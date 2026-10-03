@@ -1,21 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
-import { rangoMesPeru } from '@/lib/fechas'
+import { mesActualPeru, rangoMesPeru } from '@/lib/fechas'
 import { obtenerIngresosDelPeriodo } from '@/lib/reportesIngresos'
 
 export const dynamic = 'force-dynamic'
-
-function mesActual(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
 
 export async function GET(req: Request) {
   const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
 
-  const mes = new URL(req.url).searchParams.get('mes') || mesActual()
+  const mes = new URL(req.url).searchParams.get('mes') || mesActualPeru()
   const rango = rangoMesPeru(mes)
 
   const [ingresos, gastos, gastosPorCategoria] = await Promise.all([

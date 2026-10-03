@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Camera } from 'lucide-react'
 import { Modal } from '@/components/Modal'
+import { AtencionFotos } from '@/components/AtencionFotos'
 
 interface Cliente { id: string; nombre: string }
 interface Tratamiento { id: string; nombre: string; precio?: number }
@@ -20,6 +21,7 @@ interface Atencion {
   horaInicio: string
   horaFin: string | null
   notas: string | null
+  atencionId: string
   estado: 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
   // Precio acordado al asignar el tratamiento a la visita (si no se cambió, coincide con el
   // precio de catálogo) y el precio de catálogo capturado en ese momento, para evidenciar cambios.
@@ -80,7 +82,7 @@ function FotosPreview({ fotos }: { fotos: Foto[] }) {
   )
 }
 
-function DetalleAtencion({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
+function DetalleAtencion({ atencion, onClose, onFotosCambio }: { atencion: Atencion; onClose: () => void; onFotosCambio: () => void }) {
   return (
     <Modal title={atencion.cliente.nombre} onClose={onClose}>
       <div className="space-y-4">
@@ -112,20 +114,7 @@ function DetalleAtencion({ atencion, onClose }: { atencion: Atencion; onClose: (
           </div>
         )}
 
-        {atencion.fotos.length > 0 && (
-          <div className="border-t border-slate-200 pt-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Fotos de seguimiento (orden cronológico)</p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {atencion.fotos.map((foto) => (
-                <a key={foto.id} href={foto.url} target="_blank" rel="noreferrer" className="block text-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={foto.url} alt={formatearFechaFoto(foto.creadoAt)} className="h-24 w-24 rounded-2xl border border-slate-200 object-cover transition hover:opacity-80" />
-                  <span className="mt-1 block text-[11px] text-slate-500">{formatearFechaFoto(foto.creadoAt)}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        )}
+        <AtencionFotos atencionId={atencion.atencionId} onCambio={onFotosCambio} />
       </div>
     </Modal>
   )
@@ -412,7 +401,7 @@ function HistoricoAtencionesContent() {
         )}
       </div>
 
-      {detalle && <DetalleAtencion atencion={detalle} onClose={() => setDetalle(null)} />}
+      {detalle && <DetalleAtencion atencion={detalle} onClose={() => setDetalle(null)} onFotosCambio={() => void buscar(page)} />}
     </div>
   )
 }

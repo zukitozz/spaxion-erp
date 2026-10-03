@@ -19,6 +19,8 @@ function tratamientoActual(atencion: AtencionDetalle) {
   if (enCurso) return `${enCurso.tratamiento.nombre} (en curso)`
   const pendiente = atencion.tratamientos.find((t) => t.estado === 'PENDIENTE')
   if (pendiente) return `${pendiente.tratamiento.nombre} (pendiente)`
+  const porFacturar = atencion.tratamientos.find((t) => t.estado === 'FINALIZADA' && !t.facturaId)
+  if (porFacturar) return `${porFacturar.tratamiento.nombre} (por facturar)`
   return 'Sin tratamiento activo'
 }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
+import { mediodiaPeru } from '@/lib/fechas'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
       concepto: body.concepto.trim(),
       categoria: body.categoria || null,
       monto: Number(body.monto) || 0,
-      fecha: new Date(body.fecha),
+      fecha: mediodiaPeru(body.fecha),
       proveedor: body.proveedor || null,
       numeroComprobante: body.numeroComprobante || null,
       notas: body.notas || null,
@@ -59,7 +60,7 @@ export async function PUT(req: Request) {
       concepto: body.concepto,
       categoria: body.categoria || null,
       monto: Number(body.monto) || 0,
-      fecha: new Date(body.fecha),
+      fecha: mediodiaPeru(body.fecha),
       proveedor: body.proveedor || null,
       numeroComprobante: body.numeroComprobante || null,
       notas: body.notas || null,

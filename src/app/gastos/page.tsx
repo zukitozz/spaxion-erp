@@ -171,7 +171,7 @@ export default function GastosPage() {
                   <tbody>
                     {gastosPagina.map((gasto) => (
                       <tr key={gasto.id} className="border-t border-[#eef1ec]">
-                        <td className="py-3 pr-4 text-slate-600">{new Date(gasto.fecha).toLocaleDateString('es-PE')}</td>
+                        <td className="py-3 pr-4 text-slate-600">{new Date(gasto.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}</td>
                         <td className="py-3 pr-4 font-semibold text-[#173d36]">{gasto.concepto}</td>
                         <td className="py-3 pr-4 text-slate-600">{gasto.categoria || '—'}</td>
                         <td className="py-3 pr-4 text-slate-600">{gasto.proveedor || '—'}</td>

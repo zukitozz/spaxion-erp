@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
+import { hoyPeru } from '@/lib/fechas'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,17 +25,19 @@ export async function GET() {
     select: { id: true, nombre: true, celular: true, email: true, fechaNacimiento: true },
   })
 
-  const hoy = new Date()
-  const hoyMedianoche = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+  const [anioHoy, mesHoy, diaHoy] = hoyPeru().split('-').map(Number)
+  const hoyMedianoche = new Date(Date.UTC(anioHoy, mesHoy - 1, diaHoy))
 
   const resultado = clientes.map((cliente) => {
     const nacimiento = cliente.fechaNacimiento as Date
-    let proximo = new Date(hoyMedianoche.getFullYear(), nacimiento.getMonth(), nacimiento.getDate())
+    let proximo = new Date(Date.UTC(anioHoy, nacimiento.getUTCMonth(), nacimiento.getUTCDate()))
     if (proximo < hoyMedianoche) {
-      proximo = new Date(hoyMedianoche.getFullYear() + 1, nacimiento.getMonth(), nacimiento.getDate())
+      proximo = new Date(Date.UTC(anioHoy + 1, nacimiento.getUTCMonth(), nacimiento.getUTCDate()))
     }
     const diasHasta = Math.round((proximo.getTime() - hoyMedianoche.getTime()) / MS_POR_DIA)
-    const edadQueCumple = proximo.getFullYear() - nacimiento.getFullYear()
+    const edadQueCumple = proximo.getUTCFullYear() - nacimiento.getUTCFullYear()
+    // Mediodía UTC para que el navegador (UTC-5) muestre el mismo día y no el anterior.
+    proximo.setUTCHours(12)
 
     return {
       clienteId: cliente.id,
