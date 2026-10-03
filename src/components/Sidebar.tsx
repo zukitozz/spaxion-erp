@@ -23,6 +23,7 @@ import {
   Sparkles,
   UserCog,
   Users,
+  ShoppingCart,
   Wallet,
   X,
 } from 'lucide-react'
@@ -43,6 +44,7 @@ const navigation: { href: string; label: string; icon: typeof LayoutDashboard; r
   { href: '/inventario', label: 'Inventario', icon: Boxes, roles: ['SUPERVISOR'] },
   { href: '/productos', label: 'Productos', icon: ShoppingBag, roles: ['SUPERVISOR'] },
   { href: '/tratamientos', label: 'Tratamientos', icon: Sparkles, roles: ['SUPERVISOR'] },
+  { href: '/compras', label: 'Compras', icon: ShoppingCart, roles: ['SUPERVISOR'] },
   { href: '/gastos', label: 'Gastos', icon: Wallet, roles: ['SUPERVISOR'] },
   { href: '/facturacion', label: 'Facturación', icon: Receipt, roles: STAFF },
   { href: '/paquetes', label: 'Paquetes', icon: Package, roles: STAFF },
