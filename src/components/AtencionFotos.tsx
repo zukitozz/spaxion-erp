@@ -12,13 +12,15 @@ interface Foto {
 
 interface AtencionFotosProps {
   atencionId: string
+  /** Se invoca tras subir una foto, para que la pantalla que lo contiene refresque sus datos. */
+  onCambio?: () => void
 }
 
 function formatearFecha(fecha: string) {
   return new Date(fecha).toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export function AtencionFotos({ atencionId }: AtencionFotosProps) {
+export function AtencionFotos({ atencionId, onCambio }: AtencionFotosProps) {
   const toast = useToast()
   const [fotos, setFotos] = useState<Foto[]>([])
   const [descripcion, setDescripcion] = useState('')
@@ -51,6 +53,7 @@ export function AtencionFotos({ atencionId }: AtencionFotosProps) {
     }
     setDescripcion('')
     cargarFotos()
+    onCambio?.()
     toast.success('Foto guardada')
   }
 

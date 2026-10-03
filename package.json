@@ -9,6 +9,7 @@
     "lint": "next lint",
     "prisma": "prisma",
     "seed": "tsx prisma/seed.ts",
+    "seed:esteticistas": "tsx prisma/seed-esteticistas.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

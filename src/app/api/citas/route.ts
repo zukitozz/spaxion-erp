@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
+import { hoyPeru, rangoDiaPeru } from '@/lib/fechas'
 import { actualizarEvento, crearEvento, eliminarEvento } from '@/lib/googleCalendar'
 
 export const dynamic = 'force-dynamic'
@@ -33,8 +34,7 @@ export async function POST(req: Request) {
   if (guard) return guard
   const body = await req.json()
 
-  const inicioHoy = new Date()
-  inicioHoy.setHours(0, 0, 0, 0)
+  const inicioHoy = rangoDiaPeru(hoyPeru()).gte
   if (new Date(body.fecha) < inicioHoy) {
     return NextResponse.json({ error: 'No se pueden crear citas en fechas anteriores a hoy' }, { status: 400 })
   }

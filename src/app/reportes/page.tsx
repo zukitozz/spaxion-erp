@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { Modal } from '@/components/Modal'
 import { Spinner } from '@/components/Spinner'
 import { useToast } from '@/components/Toast'
 
@@ -40,6 +41,105 @@ interface Pendientes {
   fechaDesde: string | null
 }
 
+interface FacturaDetalle {
+  id: string
+  tipo: string
+  numeracionComprobante: string | null
+  metodoPago: string
+  total: number
+  creadoAt: string
+  cliente: { id: string; nombre: string }
+  items: { id: string; nombre: string; cantidad: number; precioUnit: number; total: number }[]
+  atencionTratamientos: {
+    id: string
+    horaInicio: string | null
+    horaFin: string | null
+    precio: number | null
+    tratamiento: { nombre: string }
+    esteticista: { name: string }
+    atencion: { cabina: { nombre: string } | null }
+  }[]
+}
+
+function hora(fecha: string | null) {
+  return fecha ? new Date(fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '—'
+}
+
+function DetalleCierre({ cierre, onClose }: { cierre: CierreTurno; onClose: () => void }) {
+  const [facturas, setFacturas] = useState<FacturaDetalle[] | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/cierres/${cierre.id}`)
+      .then((res) => res.json())
+      .then((data) => setFacturas(Array.isArray(data) ? data : []))
+  }, [cierre.id])
+
+  const totalAtenciones = facturas?.reduce((sum, f) => sum + f.atencionTratamientos.length, 0) ?? 0
+
+  return (
+    <Modal title={`Detalle del cierre · ${cierre.usuario.name}`} size="lg" onClose={onClose}>
+      <p className="mt-1 text-sm text-slate-500">
+        {new Date(cierre.fechaInicio).toLocaleString('es-PE')} → {new Date(cierre.fechaFin).toLocaleString('es-PE')}
+      </p>
+      {!facturas ? (
+        <p className="mt-6 flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando detalle...</p>
+      ) : facturas.length === 0 ? (
+        <p className="mt-6 text-sm text-slate-500">Este cierre no tiene comprobantes asociados.</p>
+      ) : (
+        <div className="mt-4 space-y-4">
+          <p className="text-sm font-semibold text-slate-700">
+            {facturas.length} comprobante(s) · {totalAtenciones} tratamiento(s) · Total S/ {cierre.totalVentas.toFixed(2)}
+          </p>
+          {facturas.map((factura) => (
+            <div key={factura.id} className="rounded-3xl border border-slate-200 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-slate-900">{factura.cliente.nombre}</p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(factura.creadoAt).toLocaleString('es-PE')} · {factura.tipo.replace('_', ' ')}
+                    {factura.numeracionComprobante ? ` ${factura.numeracionComprobante}` : ''} · {metodoLabels[factura.metodoPago] || factura.metodoPago}
+                  </p>
+                </div>
+                <p className="text-lg font-semibold text-emerald-900">S/ {factura.total.toFixed(2)}</p>
+              </div>
+
+              {factura.atencionTratamientos.length > 0 && (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="text-xs uppercase tracking-wide text-slate-400">
+                      <tr><th className="py-1 pr-4">Tratamiento</th><th className="py-1 pr-4">Esteticista</th><th className="py-1 pr-4">Cabina</th><th className="py-1 pr-4">Horario</th><th className="py-1 text-right">Precio</th></tr>
+                    </thead>
+                    <tbody className="text-slate-700">
+                      {factura.atencionTratamientos.map((linea) => (
+                        <tr key={linea.id} className="border-t border-slate-100">
+                          <td className="py-1.5 pr-4">{linea.tratamiento.nombre}</td>
+                          <td className="py-1.5 pr-4">{linea.esteticista.name}</td>
+                          <td className="py-1.5 pr-4">{linea.atencion.cabina?.nombre ?? '—'}</td>
+                          <td className="py-1.5 pr-4">{hora(linea.horaInicio)} - {hora(linea.horaFin)}</td>
+                          <td className="py-1.5 text-right">{linea.precio != null ? `S/ ${linea.precio.toFixed(2)}` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <ul className="mt-3 space-y-0.5 border-t border-slate-100 pt-2 text-xs text-slate-500">
+                {factura.items.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-3">
+                    <span>{item.cantidad} × {item.nombre} (S/ {item.precioUnit.toFixed(2)})</span>
+                    <span>S/ {item.total.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 const metodoLabels: Record<string, string> = {
   EFECTIVO: 'Efectivo',
   TARJETA: 'Tarjeta',
@@ -53,21 +153,24 @@ export default function ReportesPage() {
   const toast = useToast()
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === 'ADMIN'
+  const esGerente = session?.user?.role === 'SUPERVISOR'
+  const puedeCerrarTurno = isAdmin || esGerente
   const [cierres, setCierres] = useState<CierreTurno[]>([])
   const [pendientes, setPendientes] = useState<Pendientes | null>(null)
   const [loading, setLoading] = useState(true)
   const [cerrando, setCerrando] = useState(false)
+  const [cierreDetalle, setCierreDetalle] = useState<CierreTurno | null>(null)
 
   const load = useCallback(async () => {
     const [cierresRes, pendientesRes] = await Promise.all([
       fetch('/api/cierres'),
-      isAdmin ? fetch('/api/cierres/pendientes') : Promise.resolve(null),
+      puedeCerrarTurno ? fetch('/api/cierres/pendientes') : Promise.resolve(null),
     ])
     const cierresData = await cierresRes.json()
     setCierres(Array.isArray(cierresData) ? cierresData : [])
     setPendientes(pendientesRes ? await pendientesRes.json() : null)
     setLoading(false)
-  }, [isAdmin])
+  }, [puedeCerrarTurno])
 
   useEffect(() => { if (session) void load() }, [session, load])
 
@@ -103,7 +206,10 @@ export default function ReportesPage() {
             <p className="text-lg font-semibold text-slate-900">{cierre.usuario.name}</p>
             <p className="text-sm text-slate-500">{new Date(cierre.fechaInicio).toLocaleString('es-PE')} → {new Date(cierre.fechaFin).toLocaleString('es-PE')}</p>
           </div>
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Turno</span>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setCierreDetalle(cierre)} className="rounded-full border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-50">Ver detalle</button>
+            <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Turno</span>
+          </div>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -137,12 +243,12 @@ export default function ReportesPage() {
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/historico/atenciones" className="btn-brand inline-flex">Ver histórico de atenciones</Link>
-            {!isAdmin && <Link href="/reportes/mensual" className="btn-brand inline-flex">Ver reporte mensual</Link>}
+            {esGerente && <Link href="/reportes/mensual" className="btn-brand inline-flex">Ver reporte mensual</Link>}
           </div>
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
-          {isAdmin && (
+          {puedeCerrarTurno && (
             <div className="card-surface lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="text-xl font-semibold text-emerald-900">Cobros pendientes de cerrar</h2>
@@ -229,6 +335,7 @@ export default function ReportesPage() {
           </div>
         </section>
       </div>
+      {cierreDetalle && <DetalleCierre cierre={cierreDetalle} onClose={() => setCierreDetalle(null)} />}
     </div>
   )
 }

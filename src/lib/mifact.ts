@@ -1,5 +1,7 @@
 import type { Cliente, Configuracion, Factura, FacturaItem } from '@prisma/client'
 
+import { fechaPeru } from '@/lib/fechas'
+
 const IGV_PORCENTAJE = Number(process.env.IGV_PORCENTAJE || '18')
 
 function round2(value: number) {
@@ -7,7 +9,7 @@ function round2(value: number) {
 }
 
 function hoy(fecha: Date) {
-  return fecha.toISOString().slice(0, 10)
+  return fechaPeru(fecha)
 }
 
 interface Item {

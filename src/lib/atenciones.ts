@@ -21,11 +21,16 @@ export const atencionEnCursoInclude = {
 
 export type AtencionEnCurso = Prisma.AtencionGetPayload<{ include: typeof atencionEnCursoInclude }>
 
+// Una línea sigue visible en el dashboard mientras esté abierta o, ya finalizada, hasta que se le
+// emita un comprobante (factura, boleta o nota de venta): ahí se le asigna facturaId.
+const lineaVisible: Prisma.AtencionTratamientoWhereInput = {
+  OR: [{ estado: { in: [...LINEAS_ABIERTAS] } }, { estado: 'FINALIZADA', facturaId: null }],
+}
+
 export async function listarAtencionesEnCurso(role: string, userId: string) {
-  const where: Prisma.AtencionWhereInput =
-    role === 'ESTETICISTA'
-      ? { tratamientos: { some: { estado: { in: [...LINEAS_ABIERTAS] }, esteticistaId: userId } } }
-      : { tratamientos: { some: { estado: { in: [...LINEAS_ABIERTAS] } } } }
+  const where: Prisma.AtencionWhereInput = {
+    tratamientos: { some: role === 'ESTETICISTA' ? { AND: [lineaVisible, { esteticistaId: userId }] } : lineaVisible },
+  }
 
   return prisma.atencion.findMany({ where, include: atencionEnCursoInclude, orderBy: { horaInicio: 'asc' } })
 }

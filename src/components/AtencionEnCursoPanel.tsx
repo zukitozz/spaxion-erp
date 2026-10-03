@@ -25,6 +25,7 @@ interface LineaTratamiento {
   diasProximoTratamiento: number | null
   precio: number | null
   precioCatalogo: number | null
+  facturaId?: string | null
   tratamiento: { id: string; nombre: string; diasProximoTratamiento?: number | null }
   esteticista: { id: string; name: string }
 }

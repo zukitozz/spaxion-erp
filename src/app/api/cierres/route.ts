@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const guard = await requireApiAuth(['ADMIN'])
+  const guard = await requireApiAuth(['ADMIN', 'SUPERVISOR'])
   if (guard) return guard
 
   const session = await auth()
