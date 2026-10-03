@@ -106,6 +106,8 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
   const [nuevoEsteticistaId, setNuevoEsteticistaId] = useState('')
   const [nuevaCantidad, setNuevaCantidad] = useState(1)
   const [nuevoPrecio, setNuevoPrecio] = useState('')
+  const [nuevaComision, setNuevaComision] = useState('')
+  const [comisionEsteticistaId, setComisionEsteticistaId] = useState('')
   const [agregandoItem, setAgregandoItem] = useState(false)
   const puedeCambiarPrecio = rol === 'ADMIN' || rol === 'SUPERVISOR'
   const [productos, setProductos] = useState<Producto[]>([])
@@ -270,6 +272,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
         body: JSON.stringify({
           tratamientoId: idNuevoItem,
           esteticistaId: nuevoEsteticistaId,
+          ...(nuevaComision !== '' ? { comision: Number(nuevaComision) } : {}),
           ...(puedeCambiarPrecio && nuevoPrecio !== '' ? { precio: Number(nuevoPrecio) } : {}),
         }),
       })
@@ -282,6 +285,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
       setNuevoItemValue('')
       setNuevoEsteticistaId('')
       setNuevoPrecio('')
+      setNuevaComision('')
       toast.success('Tratamiento agregado')
       onChanged()
       return
@@ -296,6 +300,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
       body: JSON.stringify({
         productoId: idNuevoItem,
         cantidad: nuevaCantidad,
+        ...(nuevaComision !== '' ? { comision: Number(nuevaComision), esteticistaId: comisionEsteticistaId } : {}),
         ...(puedeCambiarPrecio && nuevoPrecio !== '' ? { precioUnit: Number(nuevoPrecio) } : {}),
       }),
     })
@@ -308,6 +313,8 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
     setNuevoItemValue('')
     setNuevaCantidad(1)
     setNuevoPrecio('')
+    setNuevaComision('')
+    setComisionEsteticistaId('')
     cargarProductosAtencion()
     toast.success('Producto agregado')
   }
@@ -538,6 +545,8 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                   const value = e.target.value
                   setNuevoItemValue(value)
                   setNuevoEsteticistaId('')
+                  setNuevaComision('')
+                  setComisionEsteticistaId('')
                   setNuevaCantidad(1)
                   const [tipo, id] = value ? (value.split(':') as [string, string]) : ['', '']
                   const precioCatalogo = tipo === 't'
@@ -594,9 +603,35 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                 />
               </div>
             )}
+            {idNuevoItem && (
+              <div className="w-28">
+                <label className="block text-xs font-medium text-slate-700">Comisión S/</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={nuevaComision}
+                  onChange={(e) => setNuevaComision(e.target.value)}
+                  placeholder="0.00"
+                  title="Opcional: se paga a la esteticista al momento y se registra como gasto en el cierre"
+                  className="field !mt-1"
+                />
+              </div>
+            )}
+            {tipoNuevoItem === 'p' && nuevaComision !== '' && Number(nuevaComision) > 0 && (
+              <div className="min-w-[10rem] flex-1">
+                <label className="block text-xs font-medium text-slate-700">Comisiona a</label>
+                <select value={comisionEsteticistaId} onChange={(e) => setComisionEsteticistaId(e.target.value)} className="field !mt-1">
+                  <option value="">Selecciona</option>
+                  {esteticistas.map((esteticista) => (
+                    <option key={esteticista.id} value={esteticista.id}>{esteticista.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               type="button"
-              disabled={agregandoItem || !idNuevoItem || (tipoNuevoItem === 't' && !nuevoEsteticistaId)}
+              disabled={agregandoItem || !idNuevoItem || (tipoNuevoItem === 't' && !nuevoEsteticistaId) || (tipoNuevoItem === 'p' && Number(nuevaComision) > 0 && !comisionEsteticistaId)}
               onClick={() => void agregarItem()}
               className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >

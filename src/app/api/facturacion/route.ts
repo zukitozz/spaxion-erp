@@ -8,6 +8,7 @@ import { enviarFacturaASunat } from '@/lib/enviarFactura'
 import { CODIGO_SUNAT_TIPO_COMPROBANTE, TIPO_DOCUMENTO_CORRELATIVO } from '@/lib/comprobantes'
 import { hoyPeru, rangoDiaPeru } from '@/lib/fechas'
 import { resolverPagosFactura } from '@/lib/pagos'
+import { parseComision, registrarGastoComision } from '@/lib/comisiones'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,6 +145,27 @@ export async function POST(req: Request) {
     }
   })
 
+  // Comisión opcional por ítem manual: se paga al momento a la esteticista y queda como gasto.
+  const comisionesManuales: { monto: number; esteticistaId: string; concepto: string }[] = []
+  for (let i = 0; i < itemsManualesBody.length; i++) {
+    const monto = parseComision(itemsManualesBody[i].comision)
+    if (!monto) continue
+    const esteticistaId = itemsManualesBody[i].esteticistaId
+    if (typeof esteticistaId !== 'string' || !esteticistaId) {
+      return NextResponse.json({ error: `Selecciona la esteticista que recibe la comisión de ${itemsManuales[i].nombre}` }, { status: 400 })
+    }
+    comisionesManuales.push({ monto, esteticistaId, concepto: itemsManuales[i].nombre })
+  }
+  if (comisionesManuales.length > 0) {
+    const ids = Array.from(new Set(comisionesManuales.map((c) => c.esteticistaId)))
+    const encontrados = await prisma.user.findMany({ where: { id: { in: ids }, role: 'ESTETICISTA' }, select: { id: true, name: true } })
+    if (encontrados.length !== ids.length) {
+      return NextResponse.json({ error: 'La comisión debe asignarse a una esteticista válida' }, { status: 400 })
+    }
+    const nombres = new Map(encontrados.map((e) => [e.id, e.name]))
+    for (const c of comisionesManuales) c.concepto = `Comisión ${nombres.get(c.esteticistaId)} - ${c.concepto}`
+  }
+
   const items = [...itemsDeAtenciones, ...itemsManuales]
 
   if (items.length === 0) {
@@ -233,6 +255,10 @@ export async function POST(req: Request) {
       },
       include: { cliente: true, items: true },
     })
+
+    for (const comision of comisionesManuales) {
+      await registrarGastoComision(tx, { ...comision, usuarioId: session.user.id })
+    }
 
     if (lineasTratamiento.length > 0) {
       await tx.atencionTratamiento.updateMany({

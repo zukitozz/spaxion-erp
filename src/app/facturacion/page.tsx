@@ -40,6 +40,8 @@ interface FacturaItemForm {
   nombre: string
   cantidad: number
   precioUnit: number
+  esteticistaId: string
+  comision: string
 }
 
 interface FacturaItem {
@@ -97,7 +99,7 @@ interface Pendiente {
   productos: PendienteProducto[]
 }
 
-const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', tratamientoId: '', nombre: '', cantidad: 1, precioUnit: 0 })
+const createInitialItem = (): FacturaItemForm => ({ id: crypto.randomUUID(), productoId: '', tratamientoId: '', nombre: '', cantidad: 1, precioUnit: 0, esteticistaId: '', comision: '' })
 
 const createInitialPago = () => ({ id: crypto.randomUUID(), metodo: 'EFECTIVO', monto: '' })
 
@@ -143,6 +145,7 @@ function FacturacionContent() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [productos, setProductos] = useState<Producto[]>([])
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
+  const [esteticistas, setEsteticistas] = useState<{ id: string; name: string }[]>([])
   const [facturas, setFacturas] = useState<Factura[]>([])
   const [pendientes, setPendientes] = useState<Pendiente[]>([])
   const [empresa, setEmpresa] = useState<TicketEmpresaInfo>({ nombreEmpresa: 'Spaxión Centro Estético' })
@@ -392,19 +395,22 @@ function FacturacionContent() {
   }
 
   const loadData = async () => {
-    const [clientesRes, productosRes, tratamientosRes, ajustesRes] = await Promise.all([
+    const [clientesRes, productosRes, tratamientosRes, ajustesRes, esteticistasRes] = await Promise.all([
       fetch('/api/clientes'),
       fetch('/api/productos'),
       fetch('/api/tratamientos'),
       fetch('/api/ajustes'),
+      fetch('/api/usuarios/esteticistas'),
     ])
 
-    const [clientesData, productosData, tratamientosData, ajustesData] = await Promise.all([
+    const [clientesData, productosData, tratamientosData, ajustesData, esteticistasData] = await Promise.all([
       clientesRes.json(),
       productosRes.json(),
       tratamientosRes.json(),
       ajustesRes.ok ? ajustesRes.json() : Promise.resolve(null),
+      esteticistasRes.ok ? esteticistasRes.json() : Promise.resolve([]),
     ])
+    setEsteticistas(Array.isArray(esteticistasData) ? esteticistasData : [])
 
     setClientes(Array.isArray(clientesData) ? clientesData : [])
     setProductos(Array.isArray(productosData) ? productosData : [])
@@ -985,6 +991,35 @@ function FacturacionContent() {
                             className="field mt-2 bg-white"
                           />
                         </div>
+                      </div>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor={`factura-item-${item.id}-comision`} className="block text-sm font-medium text-slate-700">Comisión S/ (opcional)</label>
+                          <input
+                            id={`factura-item-${item.id}-comision`}
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={item.comision}
+                            onChange={(event) => updateItem(index, { comision: event.target.value })}
+                            placeholder="0.00"
+                            className="field mt-2 bg-white"
+                          />
+                        </div>
+                        {Number(item.comision) > 0 && (
+                          <div>
+                            <label htmlFor={`factura-item-${item.id}-esteticista`} className="block text-sm font-medium text-slate-700">Comisiona a</label>
+                            <select
+                              id={`factura-item-${item.id}-esteticista`}
+                              value={item.esteticistaId}
+                              onChange={(event) => updateItem(index, { esteticistaId: event.target.value })}
+                              className="field mt-2 bg-white"
+                            >
+                              <option value="">Selecciona</option>
+                              {esteticistas.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                            </select>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-4 text-sm text-slate-500">
                         <p>Total: S/ {(item.cantidad * item.precioUnit).toFixed(2)}</p>

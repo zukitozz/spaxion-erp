@@ -41,5 +41,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     orderBy: { creadoAt: 'asc' },
   })
 
-  return NextResponse.json(facturas)
+  const gastos = await prisma.gasto.findMany({
+    where: { cierreTurnoId: params.id, activo: true },
+    select: { id: true, concepto: true, monto: true, esteticista: { select: { name: true } } },
+    orderBy: { creadoAt: 'asc' },
+  })
+
+  return NextResponse.json({ facturas, gastos })
 }

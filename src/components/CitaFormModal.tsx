@@ -25,6 +25,8 @@ export interface Cita {
   estado: string
   origen: string
   cliente: Cliente | null
+  montoPrepagado?: number | null
+  esteticista?: { id: string; name: string } | null
 }
 
 interface CitaFormModalProps {
@@ -33,6 +35,7 @@ interface CitaFormModalProps {
   fechaInicial?: string
   clientes: Cliente[]
   tratamientos: Tratamiento[]
+  esteticistas: { id: string; name: string }[]
   onClose: () => void
   onGuardado: (cita: Cita) => void
   onEliminado: (citaId: string) => void
@@ -58,7 +61,7 @@ const HORAS_OPCIONES = Array.from({ length: 96 }, (_, i) => {
   return `${pad(Math.floor(totalMin / 60))}:${pad(totalMin % 60)}`
 })
 
-export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos, onClose, onGuardado, onEliminado }: CitaFormModalProps) {
+export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos, esteticistas, onClose, onGuardado, onEliminado }: CitaFormModalProps) {
   const toast = useToast()
   const [clienteId, setClienteId] = useState(cita?.cliente?.id || '')
   const [clienteQuery, setClienteQuery] = useState(cita?.cliente?.nombre || '')
@@ -69,6 +72,8 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
   const [duracionMin, setDuracionMin] = useState(cita?.duracionMin ? String(cita.duracionMin) : '')
   const [showTratamientoDropdown, setShowTratamientoDropdown] = useState(false)
   const [estado, setEstado] = useState(cita?.estado || 'PENDIENTE')
+  const [montoPrepagado, setMontoPrepagado] = useState(cita?.montoPrepagado ? String(cita.montoPrepagado) : '')
+  const [esteticistaId, setEsteticistaId] = useState(cita?.esteticista?.id || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -108,8 +113,8 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
         modo === 'crear'
-          ? { clienteId, fecha: fechaHora, tratamiento, duracionMin: duracionMin || null, estado }
-          : { id: cita!.id, clienteId: clienteId || undefined, fecha: fechaHora, tratamiento, duracionMin: duracionMin || null, estado }
+          ? { clienteId, fecha: fechaHora, tratamiento, duracionMin: duracionMin || null, estado, montoPrepagado: montoPrepagado || null, esteticistaId: esteticistaId || null }
+          : { id: cita!.id, clienteId: clienteId || undefined, fecha: fechaHora, tratamiento, duracionMin: duracionMin || null, estado, montoPrepagado: montoPrepagado || null, esteticistaId: esteticistaId || null }
       ),
     })
     setSaving(false)
@@ -254,6 +259,31 @@ export function CitaFormModal({ modo, cita, fechaInicial, clientes, tratamientos
             placeholder="60"
             className="field mt-2"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="cita-esteticista" className="block text-sm font-medium text-slate-700">Esteticista (opcional)</label>
+            <select id="cita-esteticista" value={esteticistaId} onChange={(event) => setEsteticistaId(event.target.value)} className="field mt-2">
+              <option value="">Sin asignar</option>
+              {esteticistas.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="cita-prepago" className="block text-sm font-medium text-slate-700">Prepago S/ (opcional)</label>
+            <input
+              id="cita-prepago"
+              type="number"
+              min={0}
+              step="0.01"
+              value={montoPrepagado}
+              onChange={(event) => setMontoPrepagado(event.target.value)}
+              placeholder="0.00"
+              className="field mt-2"
+            />
+          </div>
         </div>
 
         <div>

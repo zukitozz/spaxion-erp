@@ -24,6 +24,8 @@ model User {
   paquetes               Paquete[]
   gastos                 Gasto[]
   paqueteSesiones        PaqueteSesion[]
+  citasAsignadas         Cita[]                 @relation("CitaEsteticista")
+  comisionesGasto        Gasto[]                @relation("GastoEsteticista")
 }
 
 enum UserRole {
@@ -63,12 +65,17 @@ model Cita {
   tratamiento   String
   duracionMin   Int?
   descripcion   String?
+  montoPrepagado Float?
+  esteticista   User?      @relation("CitaEsteticista", fields: [esteticistaId], references: [id])
+  esteticistaId String?
   estado        CitaEstado @default(PENDIENTE)
   registrado    Boolean    @default(false)
   origen        CitaOrigen @default(APP)
   googleEventId String?    @unique
   createdAt     DateTime   @default(now())
   atenciones    Atencion[]
+
+  @@index([esteticistaId])
 }
 
 enum CitaEstado {
@@ -154,6 +161,8 @@ model AtencionTratamiento {
   // precioCatalogo guarda el precio del Tratamiento en ese momento, para poder comparar después.
   precio                 Float?
   precioCatalogo         Float?
+  // Comisión pagada al momento a la esteticista; se registra además como Gasto.
+  comision               Float?
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
@@ -177,6 +186,9 @@ model AtencionProducto {
   // Precio del catálogo (Producto.precioVenta) en el momento en que se agregó, para poder
   // evidenciar si precioUnit fue modificado respecto al catálogo.
   precioCatalogo Float?
+  // Comisión pagada al momento a la esteticista que vendió el producto (también queda como Gasto).
+  comision       Float?
+  comisionEsteticistaId String?
   creadoAt       DateTime @default(now())
 
   factura   Factura? @relation(fields: [facturaId], references: [id])
@@ -449,9 +461,12 @@ model CierreTurno {
   totalYape          Float
   totalTransferencia Float     @default(0)
   totalDeposito      Float     @default(0)
+  // Suma de gastos (comisiones pagadas al momento) asignados a este cierre.
+  totalGastos        Float     @default(0)
   activo             Boolean   @default(true)
   creadoAt           DateTime  @default(now())
   facturas           Factura[]
+  gastos             Gasto[]
 }
 
 model Configuracion {
@@ -497,8 +512,14 @@ model Gasto {
   usuarioId         String?
   activo            Boolean  @default(true)
   creadoAt          DateTime @default(now())
+  // Comisión pagada a una esteticista (categoria "Comisiones"); se asigna al próximo cierre.
+  esteticista       User?        @relation("GastoEsteticista", fields: [esteticistaId], references: [id])
+  esteticistaId     String?
+  cierreTurno       CierreTurno? @relation(fields: [cierreTurnoId], references: [id], onDelete: SetNull)
+  cierreTurnoId     String?
 
   @@index([fecha])
+  @@index([cierreTurnoId])
 }
 
 model Correlativo {
