@@ -230,6 +230,7 @@ export default function CitasPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [tratamientos, setTratamientos] = useState<Tratamiento[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
+  const [esteticistas, setEsteticistas] = useState<{ id: string; name: string }[]>([])
   const [vista, setVista] = useState<Vista>('semana')
   const [fechaAncla, setFechaAncla] = useState(() => new Date())
   const [modal, setModal] = useState<ModalState>(null)
@@ -250,7 +251,9 @@ export default function CitasPage() {
       fetch('/api/clientes').then((res) => res.json()),
       fetch('/api/citas').then((res) => res.json()),
       fetch('/api/tratamientos').then((res) => res.json()),
-    ]).then(([clientesData, citasData, tratamientosData]) => {
+      fetch('/api/usuarios/esteticistas').then((res) => res.json()),
+    ]).then(([clientesData, citasData, tratamientosData, esteticistasData]) => {
+      setEsteticistas(Array.isArray(esteticistasData) ? esteticistasData : [])
       setClientes(Array.isArray(clientesData) ? clientesData : [])
       setCitas(Array.isArray(citasData) ? citasData : [])
       setTratamientos(Array.isArray(tratamientosData) ? tratamientosData : [])
@@ -476,6 +479,7 @@ export default function CitasPage() {
           fechaInicial={modal.modo === 'crear' ? modal.fechaInicial : undefined}
           clientes={clientes}
           tratamientos={tratamientos}
+          esteticistas={esteticistas}
           onClose={() => setModal(null)}
           onGuardado={handleGuardado}
           onEliminado={handleEliminado}

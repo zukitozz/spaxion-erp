@@ -22,6 +22,7 @@ interface CierreTurno {
   totalYape: number
   totalTransferencia: number
   totalDeposito: number
+  totalGastos: number
   usuario: Usuario
 }
 
@@ -34,7 +35,16 @@ interface FacturaPendiente {
   cliente: { id: string; nombre: string }
 }
 
+interface GastoCierre {
+  id: string
+  concepto: string
+  monto: number
+  esteticista?: { name: string } | null
+}
+
 interface Pendientes {
+  gastos: GastoCierre[]
+  totalGastos: number
   facturas: FacturaPendiente[]
   totalesPorMetodo: Record<string, number>
   total: number
@@ -67,11 +77,15 @@ function hora(fecha: string | null) {
 
 function DetalleCierre({ cierre, onClose }: { cierre: CierreTurno; onClose: () => void }) {
   const [facturas, setFacturas] = useState<FacturaDetalle[] | null>(null)
+  const [gastos, setGastos] = useState<GastoCierre[]>([])
 
   useEffect(() => {
     fetch(`/api/cierres/${cierre.id}`)
       .then((res) => res.json())
-      .then((data) => setFacturas(Array.isArray(data) ? data : []))
+      .then((data) => {
+        setFacturas(Array.isArray(data?.facturas) ? data.facturas : [])
+        setGastos(Array.isArray(data?.gastos) ? data.gastos : [])
+      })
   }, [cierre.id])
 
   const totalAtenciones = facturas?.reduce((sum, f) => sum + f.atencionTratamientos.length, 0) ?? 0
@@ -90,6 +104,19 @@ function DetalleCierre({ cierre, onClose }: { cierre: CierreTurno; onClose: () =
           <p className="text-sm font-semibold text-slate-700">
             {facturas.length} comprobante(s) · {totalAtenciones} tratamiento(s) · Total S/ {cierre.totalVentas.toFixed(2)}
           </p>
+          {gastos.length > 0 && (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">Gastos del turno · S/ {cierre.totalGastos.toFixed(2)}</p>
+              <ul className="mt-2 space-y-0.5 text-xs text-amber-900">
+                {gastos.map((gasto) => (
+                  <li key={gasto.id} className="flex justify-between gap-3">
+                    <span>{gasto.concepto}</span>
+                    <span>S/ {gasto.monto.toFixed(2)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {facturas.map((factura) => (
             <div key={factura.id} className="rounded-3xl border border-slate-200 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -179,6 +206,7 @@ export default function ReportesPage() {
   const totalTarjeta = useMemo(() => cierres.reduce((sum, item) => sum + item.totalTarjeta, 0), [cierres])
   const totalYape = useMemo(() => cierres.reduce((sum, item) => sum + item.totalYape, 0), [cierres])
   const totalTransferencia = useMemo(() => cierres.reduce((sum, item) => sum + item.totalTransferencia, 0), [cierres])
+  const totalGastos = useMemo(() => cierres.reduce((sum, item) => sum + item.totalGastos, 0), [cierres])
   const totalDeposito = useMemo(() => cierres.reduce((sum, item) => sum + item.totalDeposito, 0), [cierres])
 
   const cerrarTurno = async () => {
@@ -219,6 +247,8 @@ export default function ReportesPage() {
             { label: 'Yape / Plin', value: cierre.totalYape },
             { label: 'Transferencia', value: cierre.totalTransferencia },
             { label: 'Depósito', value: cierre.totalDeposito },
+            { label: 'Gastos (comisiones)', value: cierre.totalGastos },
+            { label: 'Efectivo neto', value: cierre.totalEfectivo - cierre.totalGastos },
           ].map((item) => (
             <div key={item.label} className="rounded-3xl bg-white p-4 shadow-sm">
               <p className="text-sm text-slate-500">{item.label}</p>
@@ -280,6 +310,21 @@ export default function ReportesPage() {
                     ))}
                   </div>
 
+                  {pendientes.gastos.length > 0 && (
+                    <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900">Gastos por comisiones · S/ {pendientes.totalGastos.toFixed(2)}</p>
+                      <p className="text-xs text-amber-800">Efectivo neto a entregar: S/ {((pendientes.totalesPorMetodo.EFECTIVO || 0) - pendientes.totalGastos).toFixed(2)}</p>
+                      <ul className="mt-2 space-y-0.5 text-xs text-amber-900">
+                        {pendientes.gastos.map((gasto) => (
+                          <li key={gasto.id} className="flex justify-between gap-3">
+                            <span>{gasto.concepto}</span>
+                            <span>S/ {gasto.monto.toFixed(2)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   <div className="mt-5 max-h-72 space-y-2 overflow-y-auto">
                     {pendientes.facturas.map((factura) => (
                       <div key={factura.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm">
@@ -325,6 +370,7 @@ export default function ReportesPage() {
                 { label: 'Total Yape / Plin', value: totalYape },
                 { label: 'Total transferencia', value: totalTransferencia },
                 { label: 'Total depósito', value: totalDeposito },
+                { label: 'Total gastos (comisiones)', value: totalGastos },
               ].map((item) => (
                 <div key={item.label} className="rounded-3xl bg-white p-5 shadow-sm">
                   <p className="text-sm text-slate-500">{item.label}</p>

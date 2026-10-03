@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
+import { parseComision, registrarGastoComision } from '@/lib/comisiones'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,16 +51,30 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const orden = atencion.tratamientos.reduce((max, t) => Math.max(max, t.orden), -1) + 1
 
-  const linea = await prisma.atencionTratamiento.create({
-    data: {
-      atencionId: atencion.id,
-      tratamientoId: body.tratamientoId,
-      esteticistaId: body.esteticistaId,
-      orden,
-      precio,
-      precioCatalogo: tratamiento.precio,
-    },
-    include,
+  const comision = parseComision(body.comision)
+
+  const linea = await prisma.$transaction(async (tx) => {
+    const creada = await tx.atencionTratamiento.create({
+      data: {
+        atencionId: atencion.id,
+        tratamientoId: body.tratamientoId,
+        esteticistaId: body.esteticistaId,
+        orden,
+        precio,
+        precioCatalogo: tratamiento.precio,
+        comision,
+      },
+      include,
+    })
+    if (comision) {
+      await registrarGastoComision(tx, {
+        monto: comision,
+        esteticistaId: body.esteticistaId,
+        concepto: `Comisión ${esteticista.name} - ${tratamiento.nombre}`,
+        usuarioId: session?.user?.id,
+      })
+    }
+    return creada
   })
 
   return NextResponse.json(linea, { status: 201 })

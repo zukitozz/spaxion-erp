@@ -55,6 +55,6 @@ export async function POST() {
 
   await prisma.configuracion.update({ where: { id: 'default' }, data: { googleSyncToken: nextSyncToken } })
 
-  const citas = await prisma.cita.findMany({ include: { cliente: true }, orderBy: { fecha: 'asc' } })
+  const citas = await prisma.cita.findMany({ include: { cliente: true, esteticista: { select: { id: true, name: true } } }, orderBy: { fecha: 'asc' } })
   return NextResponse.json({ citas })
 }

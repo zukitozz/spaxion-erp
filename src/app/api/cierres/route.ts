@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
+import { obtenerGastosPendientes } from '@/lib/comisiones'
 import { obtenerFacturasPendientes, calcularTotales } from '@/lib/cierres'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,8 @@ export async function POST() {
       }
 
       const { total, totalesPorMetodo } = calcularTotales(facturas)
+      const gastos = await obtenerGastosPendientes(tx)
+      const totalGastos = gastos.reduce((sum, gasto) => sum + gasto.monto, 0)
       const fechaInicio = facturas[0].creadoAt
       const fechaFin = new Date()
 
@@ -57,6 +60,7 @@ export async function POST() {
           totalYape: totalesPorMetodo.YAPE + totalesPorMetodo.PLIN,
           totalTransferencia: totalesPorMetodo.TRANSFERENCIA,
           totalDeposito: totalesPorMetodo.DEPOSITO,
+          totalGastos,
         },
       })
 
@@ -64,6 +68,13 @@ export async function POST() {
         where: { id: { in: facturas.map((factura) => factura.id) } },
         data: { cierreTurnoId: creado.id },
       })
+
+      if (gastos.length > 0) {
+        await tx.gasto.updateMany({
+          where: { id: { in: gastos.map((gasto) => gasto.id) } },
+          data: { cierreTurnoId: creado.id },
+        })
+      }
 
       return creado
     })

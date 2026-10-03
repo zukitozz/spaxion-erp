@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireApiAuth } from '@/lib/api-auth'
 import { auth } from '@/lib/auth'
+import { parseComision, registrarGastoComision } from '@/lib/comisiones'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,15 +59,39 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const precioUnitBody = Number(body.precioUnit)
   const precioUnit = puedeCambiarPrecio && Number.isFinite(precioUnitBody) && precioUnitBody >= 0 ? precioUnitBody : producto.precioVenta
 
-  const item = await prisma.atencionProducto.create({
-    data: {
-      atencionId: atencion.id,
-      productoId: producto.id,
-      cantidad,
-      precioUnit,
-      precioCatalogo: producto.precioVenta,
-    },
-    include,
+  const comision = parseComision(body.comision)
+  let esteticista: { id: string; name: string } | null = null
+  if (comision) {
+    esteticista = typeof body.esteticistaId === 'string' && body.esteticistaId
+      ? await prisma.user.findFirst({ where: { id: body.esteticistaId, role: 'ESTETICISTA' }, select: { id: true, name: true } })
+      : null
+    if (!esteticista) {
+      return NextResponse.json({ error: 'Selecciona la esteticista que recibe la comisión' }, { status: 400 })
+    }
+  }
+
+  const item = await prisma.$transaction(async (tx) => {
+    const creado = await tx.atencionProducto.create({
+      data: {
+        atencionId: atencion.id,
+        productoId: producto.id,
+        cantidad,
+        precioUnit,
+        precioCatalogo: producto.precioVenta,
+        comision,
+        comisionEsteticistaId: esteticista?.id ?? null,
+      },
+      include,
+    })
+    if (comision && esteticista) {
+      await registrarGastoComision(tx, {
+        monto: comision,
+        esteticistaId: esteticista.id,
+        concepto: `Comisión ${esteticista.name} - ${producto.nombre}`,
+        usuarioId: session?.user?.id,
+      })
+    }
+    return creado
   })
 
   return NextResponse.json(item, { status: 201 })

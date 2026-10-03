@@ -6,6 +6,14 @@ import { actualizarEvento, crearEvento, eliminarEvento } from '@/lib/googleCalen
 
 export const dynamic = 'force-dynamic'
 
+const INCLUDE_CITA = { cliente: true, esteticista: { select: { id: true, name: true } } } as const
+
+function parseMonto(valor: unknown) {
+  if (valor === null || valor === '' || valor === undefined) return null
+  const n = Number(valor)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 export async function GET() {
   const guard = await requireApiAuth()
   if (guard) return guard
@@ -22,7 +30,7 @@ export async function GET() {
   })
 
   const citas = await prisma.cita.findMany({
-    include: { cliente: true },
+    include: INCLUDE_CITA,
     orderBy: { fecha: 'asc' },
   })
 
@@ -46,9 +54,11 @@ export async function POST(req: Request) {
       tratamiento: body.tratamiento,
       duracionMin: body.duracionMin ? Number(body.duracionMin) : null,
       estado: body.estado || 'PENDIENTE',
+      montoPrepagado: parseMonto(body.montoPrepagado),
+      esteticista: body.esteticistaId ? { connect: { id: body.esteticistaId } } : undefined,
       registrado: false,
     },
-    include: { cliente: true },
+    include: INCLUDE_CITA,
   })
 
   const googleEventId = await crearEvento(cita)
@@ -77,9 +87,11 @@ export async function PUT(req: Request) {
       tratamiento: body.tratamiento,
       duracionMin: body.duracionMin !== undefined ? (body.duracionMin ? Number(body.duracionMin) : null) : undefined,
       estado: body.estado,
+      montoPrepagado: body.montoPrepagado !== undefined ? parseMonto(body.montoPrepagado) : undefined,
+      esteticista: body.esteticistaId ? { connect: { id: body.esteticistaId } } : body.esteticistaId === null ? { disconnect: true } : undefined,
       registrado: body.registrado ?? undefined,
     },
-    include: { cliente: true },
+    include: INCLUDE_CITA,
   })
 
   if (updated.googleEventId) {
