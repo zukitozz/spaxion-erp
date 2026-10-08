@@ -6,6 +6,7 @@ import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { SearchSelect } from '@/components/SearchSelect'
 
 const PAGE_SIZE = 10
 
@@ -309,15 +310,14 @@ export default function PaquetesPage() {
                 </div>
                 <div>
                   <label htmlFor="paquete-tratamiento" className="block text-sm font-medium text-slate-700">Tratamiento (opcional)</label>
-                  <select
+                  <SearchSelect
                     id="paquete-tratamiento"
                     value={nuevoPaquete.tratamientoId}
-                    onChange={(event) => setNuevoPaquete((prev) => ({ ...prev, tratamientoId: event.target.value }))}
+                    onChange={(value) => setNuevoPaquete((prev) => ({ ...prev, tratamientoId: value }))}
+                    placeholder="Sin tratamiento específico"
+                    options={tratamientos.map((tratamiento) => ({ value: tratamiento.id, label: tratamiento.nombre }))}
                     className="field mt-2"
-                  >
-                    <option value="">Sin tratamiento específico</option>
-                    {tratamientos.map((tratamiento) => <option key={tratamiento.id} value={tratamiento.id}>{tratamiento.nombre}</option>)}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label htmlFor="paquete-nombre" className="block text-sm font-medium text-slate-700">Nombre del paquete</label>

@@ -7,6 +7,7 @@ import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
 import { imprimirTicket, puedeImprimirTicket, type TicketEmpresaInfo } from '@/lib/ticket'
+import { SearchSelect } from '@/components/SearchSelect'
 
 const FACTURAS_PAGE_SIZE = 10
 
@@ -954,20 +955,16 @@ function FacturacionContent() {
                       <div className="grid gap-4 sm:grid-cols-[1.2fr_0.9fr_0.9fr]">
                         <div>
                           <label htmlFor={`factura-item-${item.id}-producto`} className="block text-sm font-medium text-slate-700">Producto o tratamiento</label>
-                          <select
+                          <SearchSelect
                             id={`factura-item-${item.id}-producto`}
                             value={item.productoId ? `p:${item.productoId}` : item.tratamientoId ? `t:${item.tratamientoId}` : ''}
-                            onChange={(event) => selectItem(index, event.target.value)}
-                            className="field mt-2 bg-white"
-                          >
-                            <option value="">Item manual</option>
-                            <optgroup label="Productos">
-                              {productos.map((producto) => <option key={producto.id} value={`p:${producto.id}`}>{producto.nombre} · stock {producto.stock}</option>)}
-                            </optgroup>
-                            <optgroup label="Tratamientos">
-                              {tratamientos.map((tratamiento) => <option key={tratamiento.id} value={`t:${tratamiento.id}`}>{tratamiento.nombre}</option>)}
-                            </optgroup>
-                          </select>
+                            onChange={(value) => selectItem(index, value)}
+                            placeholder="Item manual"
+                            options={[
+                              ...productos.map((producto) => ({ value: `p:${producto.id}`, label: `${producto.nombre} · stock ${producto.stock}`, group: 'Productos' })),
+                              ...tratamientos.map((tratamiento) => ({ value: `t:${tratamiento.id}`, label: tratamiento.nombre, group: 'Tratamientos' })),
+                            ]}
+                          />
                         </div>
                         <div>
                           <label htmlFor={`factura-item-${item.id}-cantidad`} className="block text-sm font-medium text-slate-700">Cantidad</label>
