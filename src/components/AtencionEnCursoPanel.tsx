@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { AtencionFotos } from '@/components/AtencionFotos'
 import { useToast } from '@/components/Toast'
+import { SearchSelect } from '@/components/SearchSelect'
 
 type LineaEstado = 'PENDIENTE' | 'EN_CURSO' | 'FINALIZADA' | 'CANCELADA'
 
@@ -539,10 +540,14 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <div className="min-w-[14rem] flex-[2]">
               <label className="block text-xs font-medium text-slate-700">Item</label>
-              <select
+              <SearchSelect
                 value={nuevoItemValue}
-                onChange={(e) => {
-                  const value = e.target.value
+                placeholder="Selecciona..."
+                options={[
+                  ...tratamientos.map((tratamiento) => ({ value: `t:${tratamiento.id}`, label: `${tratamiento.nombre} · S/ ${tratamiento.precio.toFixed(2)}`, group: 'Tratamientos' })),
+                  ...productos.map((producto) => ({ value: `p:${producto.id}`, label: `${producto.nombre} · S/ ${producto.precioVenta.toFixed(2)} · stock ${producto.stock}`, group: 'Productos' })),
+                ]}
+                onChange={(value) => {
                   setNuevoItemValue(value)
                   setNuevoEsteticistaId('')
                   setNuevaComision('')
@@ -557,19 +562,7 @@ export function AtencionEnCursoPanel({ atencion, cabinaId, onClose, onChanged }:
                   setNuevoPrecio(precioCatalogo != null ? String(precioCatalogo) : '')
                 }}
                 className="field !mt-1"
-              >
-                <option value="">Selecciona...</option>
-                <optgroup label="Tratamientos">
-                  {tratamientos.map((tratamiento) => (
-                    <option key={tratamiento.id} value={`t:${tratamiento.id}`}>{tratamiento.nombre} · S/ {tratamiento.precio.toFixed(2)}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Productos">
-                  {productos.map((producto) => (
-                    <option key={producto.id} value={`p:${producto.id}`}>{producto.nombre} · S/ {producto.precioVenta.toFixed(2)} · stock {producto.stock}</option>
-                  ))}
-                </optgroup>
-              </select>
+              />
             </div>
             {tipoNuevoItem === 't' && (
               <div className="min-w-[10rem] flex-1">

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { SearchSelect } from '@/components/SearchSelect'
 
 interface Producto {
   id: string
@@ -244,10 +245,14 @@ export default function TratamientosPage() {
                   {form.insumos.length === 0 && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Este tratamiento no tiene insumos asignados.</p>}
                   {form.insumos.map((insumo, index) => (
                     <div key={`${insumo.productoId}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_0.6fr_0.7fr_auto]">
-                      <select aria-label="Producto del insumo" value={insumo.productoId} onChange={(event) => updateInsumo(index, { productoId: event.target.value })} className="field">
-                        <option value="">Selecciona producto</option>
-                        {productos.map((producto) => <option key={producto.id} value={producto.id}>{producto.nombre} · stock {producto.stock}</option>)}
-                      </select>
+                      <SearchSelect
+                        ariaLabel="Producto del insumo"
+                        value={insumo.productoId}
+                        onChange={(value) => updateInsumo(index, { productoId: value })}
+                        placeholder="Selecciona producto"
+                        options={productos.map((producto) => ({ value: producto.id, label: `${producto.nombre} · stock ${producto.stock}` }))}
+                        className="field"
+                      />
                       <input aria-label="Cantidad del insumo" type="number" min="0.01" step="0.01" value={insumo.cantidad} onChange={(event) => updateInsumo(index, { cantidad: Number(event.target.value) })} className="field" />
                       <input aria-label="Unidad del insumo" value={insumo.unidad} onChange={(event) => updateInsumo(index, { unidad: event.target.value })} className="field" placeholder="unidad" />
                       <button type="button" onClick={() => removeInsumo(index)} className="px-2 text-sm text-rose-600">Quitar</button>
