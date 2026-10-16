@@ -42,10 +42,11 @@ Proyecto inicial para un sistema ERP/POS de gestión de spa con Next.js 14, Post
 - La aplicación usa NextAuth con credenciales almacenadas en el modelo `User`.
 - Debes crear el primer usuario administrador mediante un proceso controlado antes de iniciar sesión.
 - Las rutas de API respaldadas por Prisma se ejecutan dinámicamente contra PostgreSQL.
-- El registro de factura se guarda localmente en PostgreSQL y, para Boleta/Factura (no para Nota de venta), puede enviarse a SUNAT desde el botón "Enviar a SUNAT" en Facturación — llama a `/api/facturacion/enviar`, que usa el proveedor Mifact (`src/lib/mifact.ts`):
-  - `MIFACT_ENDPOINT`: URL del servicio SendInvoice que te da Mifact.
-  - `MIFACT_TOKEN`: credencial de autenticación (Mifact tiene un ambiente `demo.mifact.net.pe` separado del de producción; usa el token correspondiente a cada uno).
-  - `MIFACT_RUC_EMISOR`: el RUC asociado a ese token (puede diferir del RUC real de la empresa mientras se usa el ambiente de pruebas).
+- El registro de factura se guarda localmente en PostgreSQL y, para Boleta/Factura (no para Nota de venta), puede enviarse a SUNAT desde el botón "Enviar a SUNAT" en Facturación — llama a `/api/facturacion/enviar`, que usa el facturador (`src/lib/facturador.ts`, spec en facturador-api):
+  - `FACTURADOR_URL`: URL base del servicio (ej. `https://facturador.peru-hub.com`).
+  - `FACTURADOR_RUC_EMISOR`: RUC emisor (11 dígitos) que va en la URL `/empresas/{ruc}/comprobantes`.
+  - `CRON_SECRET` (opcional): permite que un cron llame `POST /api/facturacion/resumen-diario` (resumen diario de boletas, una vez al día) con `Authorization: Bearer`.
+  - El servicio aún no tiene autenticación: se llama solo desde el backend. Las boletas quedan `generado` y se informan a SUNAT en el resumen diario.
   - Razón social, dirección fiscal y UBIGEO del emisor se configuran en Ajustes/Configuracion (`razonSocial`, `direccionFiscal`, `codigoUbigeo`), no como variables de entorno.
   - Una Factura exige que el cliente tenga RUC registrado; una Boleta acepta DNI o RUC.
 - Google Calendar se integra con OAuth 2.0 real (dos sentidos):
