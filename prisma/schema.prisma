@@ -348,6 +348,8 @@ model Factura {
   gravadas                    Float?
   igv                         Float?
   xmlEnvio                    String?
+  // CDR de SUNAT, sin reformatear. El facturador solo lo conserva 7 días tras la aceptación.
+  cdr                         String?
   impresion                   Int          @default(1)
 
   // Pagos parciales por paquete (ver modelo Paquete): las NOTA_VENTA de abono y el
