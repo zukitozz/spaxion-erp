@@ -184,22 +184,10 @@ export async function enviarComprobante(factura: FacturaParaEnvio): Promise<Resu
   return interpretar(data)
 }
 
-/** Informa a SUNAT las boletas de días anteriores. Seguro llamarlo de más. */
-export async function enviarResumenDiario(): Promise<unknown> {
-  const { baseUrl, ruc } = configuracionApi()
-  const response = await fetch(`${baseUrl}/empresas/${ruc}/resumenes-diarios`, {
-    method: 'POST',
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  })
-  const data = await response.json().catch(() => null)
-  if (!response.ok) throw new Error(mensajeHttp(response.status, data))
-  return data
-}
-
 /**
  * CDR de un comprobante ya enviado, o null si SUNAT aún no lo entrega. Las boletas no tienen
- * CDR propio (es el del resumen diario), así que solo aplica a facturas y notas.
+ * CDR propio (es el del resumen diario, que el facturador envía solo a las 00:10 hora de Lima),
+ * así que solo aplica a facturas y notas.
  */
 export async function obtenerCdr(tipoComprobante: string, numeracion: string): Promise<string | null> {
   const { baseUrl, ruc } = configuracionApi()

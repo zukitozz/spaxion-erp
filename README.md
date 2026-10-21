@@ -45,8 +45,8 @@ Proyecto inicial para un sistema ERP/POS de gestión de spa con Next.js 14, Post
 - El registro de factura se guarda localmente en PostgreSQL y, para Boleta/Factura (no para Nota de venta), puede enviarse a SUNAT desde el botón "Enviar a SUNAT" en Facturación — llama a `/api/facturacion/enviar`, que usa el facturador (`src/lib/facturador.ts`, spec en facturador-api):
   - `FACTURADOR_URL`: URL base del servicio (ej. `https://facturador.peru-hub.com`).
   - `FACTURADOR_RUC_EMISOR`: RUC emisor (11 dígitos) que va en la URL `/empresas/{ruc}/comprobantes`.
-  - `CRON_SECRET` (opcional): permite que un cron llame `POST /api/facturacion/resumen-diario` (resumen diario de boletas, una vez al día) con `Authorization: Bearer`.
-  - El servicio aún no tiene autenticación: se llama solo desde el backend. Las boletas quedan `generado` y se informan a SUNAT en el resumen diario.
+  - `CRON_SECRET` (opcional): permite que un cron llame `POST /api/facturacion/resumen-diario` (descarga los CDR pendientes de facturas/notas, que el facturador conserva 7 días) con `Authorization: Bearer`.
+  - El servicio aún no tiene autenticación: se llama solo desde el backend. Las boletas quedan `generado` y el facturador las declara solo en el resumen diario (00:10 hora de Lima); ya no se llama a `/resumenes-diarios`.
   - Razón social, dirección fiscal y UBIGEO del emisor se configuran en Ajustes/Configuracion (`razonSocial`, `direccionFiscal`, `codigoUbigeo`), no como variables de entorno.
   - Una Factura exige que el cliente tenga RUC registrado; una Boleta acepta DNI o RUC.
 - Google Calendar se integra con OAuth 2.0 real (dos sentidos):

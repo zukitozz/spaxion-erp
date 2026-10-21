@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireApiAuth } from '@/lib/api-auth'
-import { enviarResumenDiario } from '@/lib/facturador'
 import { sincronizarCdrPendientes } from '@/lib/enviarFactura'
 
 export const dynamic = 'force-dynamic'
 
-// Informa a SUNAT las boletas de días anteriores y descarga los CDR pendientes de facturas/notas. Lo puede llamar un cron externo con
+// Descarga los CDR pendientes de facturas/notas (disponibles 7 días en el facturador). El resumen diario de boletas
+// ya lo envía el facturador solo, por eso no se llama aquí. Lo puede llamar un cron externo con
 // `Authorization: Bearer $CRON_SECRET`, o un ADMIN/SUPERVISOR con sesión.
 export async function POST(req: Request) {
   const secreto = process.env.CRON_SECRET
@@ -16,11 +16,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const resumen = await enviarResumenDiario()
     const cdr = await sincronizarCdrPendientes()
-    return NextResponse.json({ resumen, cdr })
+    return NextResponse.json({ cdr })
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error desconocido al enviar el resumen diario'
+    const mensaje = error instanceof Error ? error.message : 'Error desconocido al sincronizar los CDR'
     return NextResponse.json({ error: mensaje }, { status: 502 })
   }
 }
