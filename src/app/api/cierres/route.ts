@@ -89,13 +89,20 @@ export async function POST() {
 }
 
 export async function DELETE(req: Request) {
-  const guard = await requireApiAuth(['ADMIN'])
+  // Solo el gerente deshace un cierre. Las facturas y gastos del cierre quedan libres
+  // (onDelete: SetNull) y vuelven a figurar como pendientes del siguiente cierre.
+  const guard = await requireApiAuth(['SUPERVISOR'])
   if (guard) return guard
   const url = new URL(req.url)
   const id = url.searchParams.get('id')
 
   if (!id) {
     return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+  }
+
+  const existente = await prisma.cierreTurno.findUnique({ where: { id }, select: { id: true } })
+  if (!existente) {
+    return NextResponse.json({ error: 'Cierre no encontrado' }, { status: 404 })
   }
 
   await prisma.cierreTurno.delete({ where: { id } })

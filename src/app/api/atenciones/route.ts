@@ -13,6 +13,7 @@ const include = {
   atencion: {
     select: {
       id: true,
+      horaInicio: true,
       cabina: { select: { id: true, nombre: true } },
       cliente: { select: { id: true, nombre: true } },
       cita: { select: { id: true, fecha: true } },
@@ -30,7 +31,8 @@ async function aplanar(linea: LineaConAtencion) {
   // El bucket es privado: se devuelve una URL firmada por foto en lugar de la key de S3.
   const fotos = await Promise.all(atencion.fotos.map(async ({ key, ...foto }) => ({ ...foto, url: await urlFirmada(key) })))
   // resto.id (línea de tratamiento) debe prevalecer sobre atencion.id (la visita).
-  return { ...atencion, fotos, ...resto, atencionId: atencion.id }
+  // Las líneas PENDIENTES (p. ej. sesiones de paquete) aún no tienen horaInicio: se muestra la fecha de la visita.
+  return { ...atencion, fotos, ...resto, horaInicio: resto.horaInicio ?? atencion.horaInicio, atencionId: atencion.id }
 }
 
 const PAGE_SIZE_DEFAULT = 15

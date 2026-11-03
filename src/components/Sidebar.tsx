@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
+import { CLAVE_ALERTA_CUMPLEANOS } from '@/components/CumpleanosAlerta'
 import {
   BarChart3,
   Boxes,
@@ -151,7 +152,10 @@ export function Sidebar({ collapsed, onToggleCollapsed, mobileOpen, onCloseMobil
           </div>
           <button
             type="button"
-            onClick={() => void signOut({ callbackUrl: '/auth/login' })}
+            onClick={() => {
+              try { sessionStorage.removeItem(CLAVE_ALERTA_CUMPLEANOS) } catch { /* sin sessionStorage */ }
+              void signOut({ callbackUrl: '/auth/login' })
+            }}
             title={collapsed ? 'Salir' : undefined}
             className={`mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#f4d5bd] transition hover:bg-[#7a2e2e] hover:text-white ${
               collapsed ? 'justify-center' : ''

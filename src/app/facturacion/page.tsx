@@ -6,6 +6,7 @@ import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { imprimirTicket, puedeImprimirTicket, type TicketEmpresaInfo } from '@/lib/ticket'
 import { SearchSelect } from '@/components/SearchSelect'
 
@@ -138,6 +139,7 @@ function FacturacionContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const toast = useToast()
+  const confirmar = useConfirm()
   const [atencionIdOrigen] = useState(() => searchParams.get('atencionId') || '')
   const [mostrarFormulario, setMostrarFormulario] = useState(
     () => Boolean(searchParams.get('atencionId') || searchParams.get('clienteId')),
@@ -551,6 +553,21 @@ function FacturacionContent() {
   const handleSubmit = async () => {
     if (!form.clienteId) return
     if (pendientes.length === 0 && itemsValidos.length === 0) return
+    if (submitting) return
+    const aceptado = await confirmar({
+      title: 'Registrar comprobante',
+      mensaje: form.tipo === 'NOTA_VENTA'
+        ? 'Se registrará la nota de venta y el cobro quedará pendiente del próximo cierre de turno.'
+        : 'Se registrará el comprobante, se enviará a SUNAT y el cobro quedará pendiente del próximo cierre de turno.',
+      detalle: [
+        `Cliente: ${clienteQuery}`,
+        `Tipo: ${form.tipo.replace('_', ' ')}`,
+        `Pago: ${form.pagoMixto ? 'Mixto' : form.metodoPago}`,
+        `Total: S/ ${total.toFixed(2)}`,
+      ],
+      textoConfirmar: 'Registrar',
+    })
+    if (!aceptado) return
     setSubmitting(true)
 
     const preciosTratamiento = Object.fromEntries(
