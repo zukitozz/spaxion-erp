@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import { Modal } from '@/components/Modal'
 import { Spinner } from '@/components/Spinner'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 interface Usuario {
   id: string
@@ -178,6 +179,7 @@ const metodoLabels: Record<string, string> = {
 
 export default function ReportesPage() {
   const toast = useToast()
+  const confirmar = useConfirm()
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === 'ADMIN'
   const esGerente = session?.user?.role === 'SUPERVISOR'
@@ -210,6 +212,20 @@ export default function ReportesPage() {
   const totalDeposito = useMemo(() => cierres.reduce((sum, item) => sum + item.totalDeposito, 0), [cierres])
 
   const cerrarTurno = async () => {
+    if (cerrando || !pendientes) return
+    const efectivoNeto = (pendientes.totalesPorMetodo.EFECTIVO || 0) - pendientes.totalGastos
+    const aceptado = await confirmar({
+      title: 'Cerrar turno',
+      mensaje: 'Se cerrarán todos los cobros pendientes en un solo cierre. Revisa el resumen antes de continuar.',
+      detalle: [
+        `Comprobantes: ${pendientes.facturas.length}`,
+        `Total ventas: S/ ${pendientes.total.toFixed(2)}`,
+        `Gastos (comisiones): S/ ${pendientes.totalGastos.toFixed(2)}`,
+        `Efectivo neto a entregar: S/ ${efectivoNeto.toFixed(2)}`,
+      ],
+      textoConfirmar: 'Cerrar turno',
+    })
+    if (!aceptado) return
     setCerrando(true)
     const response = await fetch('/api/cierres', { method: 'POST' })
     setCerrando(false)
@@ -220,6 +236,29 @@ export default function ReportesPage() {
     }
     await load()
     toast.success('Turno cerrado correctamente')
+  }
+
+  const eliminarCierre = async (cierre: CierreTurno) => {
+    const aceptado = await confirmar({
+      title: 'Eliminar cierre de turno',
+      mensaje: 'Las ventas y gastos de este cierre quedarán libres y volverán a figurar como pendientes de cerrar. Úsalo solo si el cierre se hizo por error.',
+      detalle: [
+        `Cerrado por: ${cierre.usuario.name}`,
+        `Fecha: ${new Date(cierre.fechaFin).toLocaleString('es-PE')}`,
+        `Total ventas: S/ ${cierre.totalVentas.toFixed(2)}`,
+      ],
+      textoConfirmar: 'Eliminar cierre',
+      peligro: true,
+    })
+    if (!aceptado) return
+    const response = await fetch(`/api/cierres?id=${cierre.id}`, { method: 'DELETE' })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      toast.error(data?.error || 'No se pudo eliminar el cierre')
+      return
+    }
+    await load()
+    toast.success('Cierre eliminado; las ventas volvieron a pendientes')
   }
 
   const reportRows = loading ? (
@@ -236,6 +275,9 @@ export default function ReportesPage() {
           </div>
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setCierreDetalle(cierre)} className="rounded-full border border-emerald-200 px-4 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-50">Ver detalle</button>
+            {esGerente && (
+              <button type="button" onClick={() => void eliminarCierre(cierre)} className="rounded-full border border-rose-200 px-4 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50">Eliminar</button>
+            )}
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-900">Turno</span>
           </div>
         </div>

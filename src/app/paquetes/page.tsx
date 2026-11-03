@@ -6,6 +6,7 @@ import { ClienteHistorialLink } from '@/components/ClienteHistorialLink'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { SearchSelect } from '@/components/SearchSelect'
 
 const PAGE_SIZE = 10
@@ -71,6 +72,7 @@ function hoyISO() {
 export default function PaquetesPage() {
   const { data: session } = useSession()
   const toast = useToast()
+  const confirmar = useConfirm()
   const puedeEmitirComprobante = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPERVISOR'
 
   const [paquetes, setPaquetes] = useState<Paquete[]>([])
@@ -157,6 +159,18 @@ export default function PaquetesPage() {
       return
     }
 
+    const aceptado = await confirmar({
+      title: 'Crear paquete',
+      mensaje: 'Se creará el paquete con el precio total indicado.',
+      detalle: [
+        `Paciente: ${cliente.nombre}`,
+        `Paquete: ${nuevoPaquete.nombre.trim()} (${sesionesTotal} sesiones)`,
+        `Precio total: S/ ${precioTotal.toFixed(2)}`,
+      ],
+      textoConfirmar: 'Crear paquete',
+    })
+    if (!aceptado) return
+
     setCreando(true)
     const response = await fetch('/api/paquetes', {
       method: 'POST',
@@ -189,6 +203,19 @@ export default function PaquetesPage() {
       toast.error('Ingresa un monto válido')
       return
     }
+
+    const paquete = paquetes.find((p) => p.id === paqueteId)
+    const aceptado = await confirmar({
+      title: 'Registrar abono',
+      mensaje: 'Se registrará el cobro y quedará pendiente del próximo cierre de turno.',
+      detalle: [
+        `Paciente: ${paquete?.cliente.nombre ?? '—'}`,
+        `Paquete: ${paquete?.nombre ?? '—'}`,
+        `Abono: S/ ${monto.toFixed(2)} (${abonoForm.metodoPago})`,
+      ],
+      textoConfirmar: 'Registrar abono',
+    })
+    if (!aceptado) return
 
     setEnviando(true)
     const response = await fetch(`/api/paquetes/${paqueteId}/abonos`, {
@@ -249,6 +276,20 @@ export default function PaquetesPage() {
       toast.error('Selecciona al menos una nota de venta')
       return
     }
+
+    const paquete = paquetes.find((p) => p.id === paqueteId)
+    const aceptado = await confirmar({
+      title: 'Emitir comprobante final',
+      mensaje: 'Se emitirá el comprobante que consolida las notas de venta seleccionadas y se enviará a SUNAT.',
+      detalle: [
+        `Paciente: ${paquete?.cliente.nombre ?? '—'}`,
+        `Tipo: ${tipoComprobante}`,
+        `Notas de venta: ${notasSeleccionadas.size}`,
+        `Total: S/ ${totalNotasSeleccionadas.toFixed(2)}`,
+      ],
+      textoConfirmar: 'Emitir',
+    })
+    if (!aceptado) return
 
     setEnviando(true)
     const response = await fetch(`/api/paquetes/${paqueteId}/cerrar`, {

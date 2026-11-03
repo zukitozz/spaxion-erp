@@ -9,6 +9,7 @@ interface ReporteMensual {
   ingresos: { total: number; totalesPorMetodo: Record<string, number> }
   gastos: { total: number; porCategoria: { categoria: string; total: number }[] }
   diferencia: number
+  cierres: { id: string; fechaFin: string; totalVentas: number; usuario: string }[]
 }
 
 const metodoLabels: Record<string, string> = {
@@ -42,22 +43,31 @@ export default function ReporteMensualPage() {
   return (
     <div className="page-shell px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="card-surface">
+        <div className="card-surface print:hidden">
           <p className="eyebrow">Reportes</p>
           <h1 className="mt-3 page-heading text-3xl">Reporte mensual</h1>
           <p className="mt-2 text-slate-600">Solo para gerente: compara ingresos y gastos del mes para ver la utilidad.</p>
           <Link href="/reportes" className="btn-brand mt-5 inline-flex">Ver cierres de turno</Link>
         </div>
 
-        <div className="card-surface">
-          <label className="block text-sm font-medium text-slate-700">Mes</label>
-          <input
-            type="month"
-            value={mes}
-            onChange={(event) => setMes(event.target.value)}
-            className="field mt-2 max-w-xs"
-          />
+        <div className="card-surface flex flex-wrap items-end justify-between gap-4 print:hidden">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Mes</label>
+            <input
+              type="month"
+              value={mes}
+              onChange={(event) => setMes(event.target.value)}
+              className="field mt-2 max-w-xs"
+            />
+          </div>
+          <button type="button" disabled={cargando || !reporte} onClick={() => window.print()} className="btn-brand disabled:opacity-60">
+            Imprimir cierre de mes
+          </button>
         </div>
+
+        <h1 className="hidden text-2xl font-bold text-slate-900 print:block">
+          Cierre de mes · {mes} · Spaxión
+        </h1>
 
         {cargando || !reporte ? (
           <p className="flex items-center gap-2 text-sm text-slate-500"><Spinner /> Cargando reporte...</p>
@@ -105,6 +115,40 @@ export default function ReporteMensualPage() {
                 )}
                 <p className="mt-5 text-sm text-slate-600">Total gastos: <span className="font-semibold text-rose-700">S/ {reporte.gastos.total.toFixed(2)}</span></p>
               </div>
+            </div>
+
+            <div className="card-surface">
+              <h2 className="text-xl font-semibold text-emerald-900">Cierres de turno realizados ({reporte.cierres.length})</h2>
+              {reporte.cierres.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">No se realizaron cierres este mes.</p>
+              ) : (
+                <table className="mt-5 w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="py-2 pr-4">Fecha y hora</th>
+                      <th className="py-2 pr-4">Cerrado por</th>
+                      <th className="py-2 text-right">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reporte.cierres.map((cierre) => (
+                      <tr key={cierre.id} className="border-b border-slate-100">
+                        <td className="py-2 pr-4">{new Date(cierre.fechaFin).toLocaleString('es-PE')}</td>
+                        <td className="py-2 pr-4">{cierre.usuario}</td>
+                        <td className="py-2 text-right font-semibold text-slate-800">S/ {cierre.totalVentas.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={2} className="pt-3 font-semibold text-slate-700">Total cierres</td>
+                      <td className="pt-3 text-right font-semibold text-emerald-900">
+                        S/ {reporte.cierres.reduce((sum, cierre) => sum + cierre.totalVentas, 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
             </div>
           </>
         )}

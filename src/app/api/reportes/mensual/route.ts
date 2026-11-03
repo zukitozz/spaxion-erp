@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const mes = new URL(req.url).searchParams.get('mes') || mesActualPeru()
   const rango = rangoMesPeru(mes)
 
-  const [ingresos, gastos, gastosPorCategoria] = await Promise.all([
+  const [ingresos, gastos, gastosPorCategoria, cierres] = await Promise.all([
     obtenerIngresosDelPeriodo(prisma, rango),
     prisma.gasto.aggregate({
       where: { activo: true, fecha: rango },
@@ -23,6 +23,11 @@ export async function GET(req: Request) {
       by: ['categoria'],
       where: { activo: true, fecha: rango },
       _sum: { monto: true },
+    }),
+    prisma.cierreTurno.findMany({
+      where: { activo: true, fechaFin: rango },
+      select: { id: true, fechaFin: true, totalVentas: true, usuario: { select: { name: true } } },
+      orderBy: { fechaFin: 'asc' },
     }),
   ])
 
@@ -39,5 +44,11 @@ export async function GET(req: Request) {
       })),
     },
     diferencia: ingresos.total - totalGastos,
+    cierres: cierres.map((cierre) => ({
+      id: cierre.id,
+      fechaFin: cierre.fechaFin,
+      totalVentas: cierre.totalVentas,
+      usuario: cierre.usuario.name,
+    })),
   })
 }

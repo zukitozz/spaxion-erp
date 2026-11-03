@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Spinner } from '@/components/Spinner'
 import { Pagination } from '@/components/Pagination'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 
 interface Gasto {
   id: string
@@ -38,6 +39,7 @@ const emptyForm = { concepto: '', monto: 0, fecha: hoyISO(), proveedor: '', nume
 
 export default function ComprasPage() {
   const toast = useToast()
+  const confirmar = useConfirm()
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState(emptyForm)
@@ -93,6 +95,13 @@ export default function ComprasPage() {
   }
 
   const handleGuardar = async () => {
+    const aceptado = await confirmar({
+      title: editingId ? 'Actualizar compra' : 'Registrar compra',
+      mensaje: editingId ? 'Se modificarán los datos de la compra.' : 'Se registrará la compra con estos datos.',
+      detalle: [`Concepto: ${form.concepto}`, `Monto: S/ ${Number(form.monto).toFixed(2)}`],
+      textoConfirmar: editingId ? 'Actualizar' : 'Registrar',
+    })
+    if (!aceptado) return
     setLoading(true)
     const response = await fetch('/api/compras', {
       method: editingId ? 'PUT' : 'POST',
@@ -112,6 +121,15 @@ export default function ComprasPage() {
   }
 
   const handleEliminar = async (id: string) => {
+    const registro = gastos.find((item) => item.id === id)
+    const aceptado = await confirmar({
+      title: 'Eliminar compra',
+      mensaje: 'Se eliminará la compra. Esta acción no se puede deshacer.',
+      detalle: registro ? [`Concepto: ${registro.concepto}`, `Monto: S/ ${registro.monto.toFixed(2)}`] : undefined,
+      textoConfirmar: 'Eliminar',
+      peligro: true,
+    })
+    if (!aceptado) return
     const response = await fetch(`/api/compras?id=${id}`, { method: 'DELETE' })
     if (!response.ok) {
       const data = await response.json().catch(() => null)

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
 import { Sidebar } from '@/components/Sidebar'
+import { CumpleanosAlerta } from '@/components/CumpleanosAlerta'
 import { ConfiguracionProvider } from '@/components/ConfiguracionProvider'
 import { useAppStore } from '@/store/useAppStore'
 
@@ -22,14 +23,16 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <ConfiguracionProvider>
       <div className="min-h-screen">
+        <div className="print:hidden">
         <Sidebar
           collapsed={collapsed}
           onToggleCollapsed={toggleSidebar}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
         />
+        </div>
 
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[#c19a4b]/35 bg-[linear-gradient(120deg,#00483f,#00655a)] px-4 py-3 text-[#f4f0e8] shadow-[0_8px_24px_rgba(0,72,63,0.18)] md:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[#c19a4b]/35 bg-[linear-gradient(120deg,#00483f,#00655a)] px-4 py-3 text-[#f4f0e8] shadow-[0_8px_24px_rgba(0,72,63,0.18)] md:hidden print:hidden">
           <button
             type="button"
             aria-label="Abrir menú"
@@ -41,9 +44,10 @@ export function AppShell({ children }: { readonly children: React.ReactNode }) {
           <BrandLogo compact />
         </header>
 
-        <main className={`transition-all duration-200 ${collapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+        <main className={`transition-all duration-200 ${collapsed ? 'md:pl-20' : 'md:pl-64'} print:pl-0`}>
           {children}
         </main>
+        <CumpleanosAlerta />
       </div>
     </ConfiguracionProvider>
   )
