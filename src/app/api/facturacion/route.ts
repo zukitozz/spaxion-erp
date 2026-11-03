@@ -36,6 +36,8 @@ export async function GET(req: Request) {
   return NextResponse.json(facturas)
 }
 
+class StockInsuficienteError extends Error {}
+
 export async function POST(req: Request) {
   const guard = await requireApiAuth()
   if (guard) return guard
@@ -200,24 +202,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: columnasPago.error }, { status: 400 })
   }
 
-  const factura = await prisma.$transaction(async (tx) => {
-    for (const item of items) {
-      if (!item.productoId) continue
-      const updated = await tx.producto.updateMany({
-        where: { id: item.productoId, stock: { gte: item.cantidad } },
-        data: { stock: { decrement: item.cantidad } },
-      })
-      if (updated.count !== 1) {
-        throw new Error(`Stock insuficiente para ${item.nombre}`)
+  let factura
+  try {
+    factura = await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        if (!item.productoId) continue
+        const updated = await tx.producto.updateMany({
+          where: { id: item.productoId, stock: { gte: item.cantidad } },
+          data: { stock: { decrement: item.cantidad } },
+        })
+        if (updated.count !== 1) {
+          throw new StockInsuficienteError(`Stock insuficiente para ${item.nombre}`)
+        }
       }
-    }
 
-    const prefijo = resolverPrefijo(tipoDocumento)
-    const numeracionComprobante = await obtenerCorrelativo(tx, {
-      ruc: configuracion.ruc!,
-      tipoDocumento,
-      serie: serieConfig.serie,
-      prefijo,
+      const prefijo = resolverPrefijo(tipoDocumento)
+      const numeracionComprobante = await obtenerCorrelativo(tx, {
+        ruc: configuracion.ruc!,
+        tipoDocumento,
+        serie: serieConfig.serie,
+        prefijo,
     })
 
     const gravadas = round2(total / (1 + IGV_PORCENTAJE / 100))
@@ -274,7 +278,14 @@ export async function POST(req: Request) {
     }
 
     return creada
-  })
+    })
+  } catch (error) {
+    console.error('Error al registrar la factura', error)
+    if (error instanceof StockInsuficienteError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    return NextResponse.json({ error: 'No se pudo registrar la factura. Intenta nuevamente.' }, { status: 500 })
+  }
 
   const facturaFinal = factura.tipo === 'NOTA_VENTA' ? factura : (await enviarFacturaASunat(factura.id)) ?? factura
 
