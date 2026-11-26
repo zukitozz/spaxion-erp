@@ -75,7 +75,8 @@ export default function PaquetesPage() {
   const { data: session } = useSession()
   const toast = useToast()
   const confirmar = useConfirm()
-  const puedeEmitirComprobante = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPERVISOR'
+  const esGerente = session?.user?.role === 'SUPERVISOR'
+  const puedeEmitirComprobante =session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPERVISOR'
 
   const [paquetes, setPaquetes] = useState<Paquete[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -245,6 +246,28 @@ export default function PaquetesPage() {
     setAbonoForm({ monto: '', metodoPago: 'EFECTIVO' })
     setAplicarRecargo(false)
     setRecargoManual(null)
+    await loadData()
+  }
+
+  const handleEliminarAbono = async (paqueteId: string, abono: Abono) => {
+    const aceptado = await confirmar({
+      title: 'Eliminar abono',
+      mensaje: 'Se anulará el abono y el saldo del paquete se recalculará. Esta acción no se puede deshacer.',
+      detalle: [`${abono.numeracionComprobante ?? '—'} · ${abono.metodoPago}`, `Monto: S/ ${abono.total.toFixed(2)}`],
+      textoConfirmar: 'Eliminar abono',
+    })
+    if (!aceptado) return
+
+    setEnviando(true)
+    const response = await fetch(`/api/paquetes/${paqueteId}/abonos/${abono.id}`, { method: 'DELETE' })
+    const data = await response.json().catch(() => null)
+    setEnviando(false)
+
+    if (!response.ok) {
+      toast.error(data?.error || 'No se pudo eliminar el abono')
+      return
+    }
+    toast.success('Abono eliminado')
     await loadData()
   }
 
@@ -579,6 +602,11 @@ export default function PaquetesPage() {
                       <span>{factura.fechaHora ? new Date(factura.fechaHora).toLocaleDateString('es-PE') : '—'}</span>
                       <span>{NOMBRE_METODO_PAGO[factura.metodoPago] || factura.metodoPago}</span>
                       <span className="font-semibold text-slate-700">S/ {factura.total.toFixed(2)}</span>
+                      {esGerente && paqueteAbierto.estado === 'ABIERTO' && (
+                        <button type="button" disabled={enviando} onClick={() => void handleEliminarAbono(paqueteAbierto.id, factura)} className="ml-2 text-rose-600 hover:underline disabled:opacity-50">
+                          Eliminar
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
