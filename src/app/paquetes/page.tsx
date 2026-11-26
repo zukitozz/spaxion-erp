@@ -215,9 +215,13 @@ export default function PaquetesPage() {
     }
 
     const paquete = paquetes.find((p) => p.id === paqueteId)
+    const exceso = paquete ? Math.round((monto - paquete.saldo) * 100) / 100 : 0
+    const excede = exceso > 0.01
     const aceptado = await confirmar({
-      title: 'Registrar abono',
-      mensaje: 'Se registrará el cobro y quedará pendiente del próximo cierre de turno.',
+      title: excede ? '⚠ El abono excede el saldo pendiente' : 'Registrar abono',
+      mensaje: excede
+        ? `Atención: el monto supera el saldo pendiente (S/ ${paquete?.saldo.toFixed(2)}) por S/ ${exceso.toFixed(2)}. Ese excedente se cobrará y se incluirá en el comprobante final. ¿Confirmas que es correcto?`
+        : 'Se registrará el cobro y quedará pendiente del próximo cierre de turno.',
       detalle: [
         `Paciente: ${paquete?.cliente.nombre ?? '—'}`,
         `Paquete: ${paquete?.nombre ?? '—'}`,
@@ -232,7 +236,7 @@ export default function PaquetesPage() {
     const response = await fetch(`/api/paquetes/${paqueteId}/abonos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ monto, metodoPago: abonoForm.metodoPago, recargo: recargoAbono }),
+      body: JSON.stringify({ monto, metodoPago: abonoForm.metodoPago, recargo: recargoAbono, permitirExceso: excede }),
     })
     const data = await response.json().catch(() => null)
     setEnviando(false)
