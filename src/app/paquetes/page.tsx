@@ -360,7 +360,7 @@ export default function PaquetesPage() {
             <h1 className="page-heading mt-3 text-3xl">Sesiones con pagos parciales</h1>
             <p className="mt-2 text-slate-600">Registra abonos conforme el cliente va pagando y emite el comprobante final cuando complete el pago.</p>
           </div>
-          <button type="button" onClick={() => setMostrarFormulario(true)} className="btn-primary shrink-0">
+          <button type="button" onClick={() => setMostrarFormulario(true)} className="btn-brand shrink-0">
             Nuevo paquete
           </button>
         </div>
@@ -434,7 +434,7 @@ export default function PaquetesPage() {
                     />
                   </div>
                 </div>
-                <button type="button" disabled={creando} onClick={() => void handleCrearPaquete()} className="btn-primary w-full disabled:opacity-50">
+                <button type="button" disabled={creando} onClick={() => void handleCrearPaquete()} className="btn-brand w-full disabled:opacity-50">
                   {creando ? 'Creando...' : 'Crear paquete'}
                 </button>
               </div>
@@ -584,7 +584,7 @@ export default function PaquetesPage() {
                     type="button"
                     disabled={registrandoSesion}
                     onClick={() => void handleRegistrarSesion(paqueteAbierto.id)}
-                    className="btn-primary disabled:opacity-50"
+                    className="btn-brand disabled:opacity-50"
                   >
                     {registrandoSesion ? 'Registrando...' : 'Registrar sesión'}
                   </button>
@@ -660,7 +660,7 @@ export default function PaquetesPage() {
                       )}
                     </div>
                   )}
-                  <button type="button" disabled={enviando} onClick={() => void handleRegistrarAbono(paqueteAbierto.id)} className="btn-primary disabled:opacity-50">
+                  <button type="button" disabled={enviando} onClick={() => void handleRegistrarAbono(paqueteAbierto.id)} className="btn-brand disabled:opacity-50">
                     {enviando ? 'Registrando...' : recargoAbono > 0 ? `Confirmar abono (S/ ${(Number(abonoForm.monto || 0) + recargoAbono).toFixed(2)})` : 'Confirmar abono'}
                   </button>
                 </div>
@@ -705,7 +705,7 @@ export default function PaquetesPage() {
                     </select>
                   </div>
                   <p className="font-semibold text-[#173d36]">Total a emitir: S/ {totalNotasSeleccionadas.toFixed(2)}</p>
-                  <button type="button" disabled={enviando || notasSeleccionadas.size === 0} onClick={() => void handleEmitirComprobante(paqueteAbierto.id)} className="btn-primary disabled:opacity-50">
+                  <button type="button" disabled={enviando || notasSeleccionadas.size === 0} onClick={() => void handleEmitirComprobante(paqueteAbierto.id)} className="btn-brand disabled:opacity-50">
                     {enviando ? 'Emitiendo...' : 'Emitir comprobante final'}
                   </button>
                 </div>
