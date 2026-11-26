@@ -23,11 +23,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!METODOS_PAGO_VALIDOS.has(metodoPago)) {
     return NextResponse.json({ error: 'metodoPago inválido' }, { status: 400 })
   }
+  const recargo = body.recargo == null || body.recargo === '' ? 0 : Number(body.recargo)
+  if (!Number.isFinite(recargo) || recargo < 0) {
+    return NextResponse.json({ error: 'recargo inválido' }, { status: 400 })
+  }
+  if (recargo > 0 && metodoPago !== 'TARJETA') {
+    return NextResponse.json({ error: 'El recargo solo aplica a pagos con tarjeta' }, { status: 400 })
+  }
 
   try {
     const factura = await registrarAbono({
       paqueteId: params.id,
       monto,
+      recargo,
       metodoPago: metodoPago as MetodoPago,
       usuarioId: session.user.id,
     })

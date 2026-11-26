@@ -14,8 +14,9 @@ function round2(value: number) {
 /** Error de validación de negocio (se traduce a un 400 en la API, a diferencia de un error inesperado). */
 export class PaqueteError extends Error {}
 
-export function calcularSaldo(precioTotal: number, abonosActivos: { total: number }[]) {
-  const pagado = round2(abonosActivos.reduce((sum, abono) => sum + abono.total, 0))
+export function calcularSaldo(precioTotal: number, abonosActivos: { total: number; recargo?: number }[]) {
+  // El recargo (p.ej. por tarjeta) se cobra de más y no amortiza el precio del paquete.
+  const pagado = round2(abonosActivos.reduce((sum, abono) => sum + abono.total - (abono.recargo ?? 0), 0))
   return { pagado, saldo: round2(precioTotal - pagado) }
 }
 
@@ -55,12 +56,18 @@ export function resolverMetodoPagoConsolidado(abonos: { metodoPago: string }[]):
   return (metodos.size === 1 ? [...metodos][0] : 'MIXTO') as MetodoPago
 }
 
-export async function registrarAbono(params: { paqueteId: string; monto: number; metodoPago: MetodoPago; usuarioId: string }) {
+export async function registrarAbono(params: { paqueteId: string; monto: number; metodoPago: MetodoPago; usuarioId: string; recargo?: number }) {
   const { paqueteId, metodoPago, usuarioId } = params
   const monto = round2(Number(params.monto))
   if (!(monto > 0)) {
     throw new PaqueteError('El monto del abono debe ser mayor a 0')
   }
+  const recargo = round2(Number(params.recargo ?? 0))
+  if (!Number.isFinite(recargo) || recargo < 0) {
+    throw new PaqueteError('El recargo no puede ser negativo')
+  }
+  // `monto` amortiza el saldo; lo cobrado realmente (y lo que sale en el comprobante) es monto + recargo.
+  const totalCobrado = round2(monto + recargo)
 
   const paquete = await prisma.paquete.findUnique({
     where: { id: paqueteId },
@@ -81,8 +88,8 @@ export async function registrarAbono(params: { paqueteId: string; monto: number;
   const serieConfig = await prisma.serie.findFirst({ where: { tipoComprobante: tipoDocumento, estado: 1 } })
   if (!serieConfig) throw new PaqueteError('No hay serie configurada para nota de venta')
 
-  const gravadas = round2(monto / (1 + IGV_PORCENTAJE / 100))
-  const igv = round2(monto - gravadas)
+  const gravadas = round2(totalCobrado / (1 + IGV_PORCENTAJE / 100))
+  const igv = round2(totalCobrado - gravadas)
 
   return prisma.$transaction(async (tx) => {
     const prefijo = resolverPrefijo(tipoDocumento)
@@ -93,25 +100,29 @@ export async function registrarAbono(params: { paqueteId: string; monto: number;
       prefijo,
     })
 
+    const items = [{ nombre: `Abono - ${paquete.nombre}`, cantidad: 1, precioUnit: monto, total: monto }]
+    if (recargo > 0) {
+      items.push({ nombre: 'Recargo por pago con tarjeta', cantidad: 1, precioUnit: recargo, total: recargo })
+    }
+
     return tx.factura.create({
       data: {
         cliente: { connect: { id: paquete.clienteId } },
         paquete: { connect: { id: paquete.id } },
         tipo: 'NOTA_VENTA',
-        total: monto,
+        total: totalCobrado,
+        recargo,
         metodoPago,
         estado: 'PAGADO',
-        items: {
-          create: [{ nombre: `Abono - ${paquete.nombre}`, cantidad: 1, precioUnit: monto, total: monto }],
-        },
+        items: { create: items },
         tipoComprobante: CODIGO_SUNAT_TIPO_COMPROBANTE.NOTA_VENTA,
         numeracionComprobante,
         fechaHora: new Date(),
         fechaEmision: new Date(),
-        totalVenta: String(monto),
+        totalVenta: String(totalCobrado),
         gravadas,
         igv,
-        montoLetras: numeroALetras(monto),
+        montoLetras: numeroALetras(totalCobrado),
         enviado: false,
         usuario: { connect: { id: usuarioId } },
         ruc: configuracion.ruc,

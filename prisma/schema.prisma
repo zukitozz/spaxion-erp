@@ -355,7 +355,9 @@ model Factura {
   // Pagos parciales por paquete (ver modelo Paquete): las NOTA_VENTA de abono y el
   // comprobante final consolidador comparten el mismo paqueteId.
   cuentaParaCierre   Boolean   @default(true)
-  paquete            Paquete?  @relation(fields: [paqueteId], references: [id])
+  // Recargo cobrado de más (p.ej. 5% por pagar con tarjeta) incluido en `total`; no reduce el saldo del paquete.
+  recargo            Float     @default(0)
+  paquete           Paquete?  @relation(fields: [paqueteId], references: [id])
   paqueteId          String?
   // Solo se usa en las notas de venta absorbidas por el comprobante final del paquete:
   // apunta a la Factura (BOLETA/FACTURA) que las consolidó, para no duplicar su monto en reportes.
