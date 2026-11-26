@@ -21,7 +21,8 @@ const NOMBRE_METODO_PAGO: Record<string, string> = {
   MIXTO: 'Mixto',
 }
 
-const METODOS_PAGO_ABONO = ['EFECTIVO', 'TARJETA', 'YAPE', 'PLIN', 'TRANSFERENCIA', 'DEPOSITO'] as const
+const RECARGO_TARJETA_PORCENTAJE = 5
+const METODOS_PAGO_ABONO =['EFECTIVO', 'TARJETA', 'YAPE', 'PLIN', 'TRANSFERENCIA', 'DEPOSITO'] as const
 
 interface Cliente {
   id: string
@@ -38,6 +39,7 @@ interface Abono {
   id: string
   numeracionComprobante: string | null
   total: number
+  recargo?: number
   metodoPago: string
   fechaHora: string | null
   activo: boolean
@@ -87,6 +89,13 @@ export default function PaquetesPage() {
 
   const [paqueteAbiertoId, setPaqueteAbiertoId] = useState<string | null>(null)
   const [abonoForm, setAbonoForm] = useState({ monto: '', metodoPago: 'EFECTIVO' })
+  // Recargo por tarjeta: la casilla lo activa; `recargoManual` permite ajustar el monto calculado.
+  const [aplicarRecargo, setAplicarRecargo] = useState(false)
+  const [recargoManual, setRecargoManual] = useState<string | null>(null)
+  const recargoCalculado = Math.round(Number(abonoForm.monto || 0) * RECARGO_TARJETA_PORCENTAJE) / 100
+  const recargoAbono = abonoForm.metodoPago === 'TARJETA' && aplicarRecargo
+    ? (recargoManual !== null ? Number(recargoManual) || 0 : recargoCalculado)
+    : 0
   const [notasSeleccionadas, setNotasSeleccionadas] = useState<Set<string>>(new Set())
   const [tipoComprobante, setTipoComprobante] = useState<'BOLETA' | 'FACTURA'>('BOLETA')
   const [enviando, setEnviando] = useState(false)
@@ -212,6 +221,7 @@ export default function PaquetesPage() {
         `Paciente: ${paquete?.cliente.nombre ?? '—'}`,
         `Paquete: ${paquete?.nombre ?? '—'}`,
         `Abono: S/ ${monto.toFixed(2)} (${abonoForm.metodoPago})`,
+        ...(recargoAbono > 0 ? [`Recargo tarjeta: S/ ${recargoAbono.toFixed(2)}`, `Total a cobrar: S/ ${(monto + recargoAbono).toFixed(2)}`] : []),
       ],
       textoConfirmar: 'Registrar abono',
     })
@@ -221,7 +231,7 @@ export default function PaquetesPage() {
     const response = await fetch(`/api/paquetes/${paqueteId}/abonos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ monto, metodoPago: abonoForm.metodoPago }),
+      body: JSON.stringify({ monto, metodoPago: abonoForm.metodoPago, recargo: recargoAbono }),
     })
     const data = await response.json().catch(() => null)
     setEnviando(false)
@@ -233,6 +243,8 @@ export default function PaquetesPage() {
 
     toast.success('Abono registrado correctamente')
     setAbonoForm({ monto: '', metodoPago: 'EFECTIVO' })
+    setAplicarRecargo(false)
+    setRecargoManual(null)
     await loadData()
   }
 
@@ -595,8 +607,29 @@ export default function PaquetesPage() {
                       {METODOS_PAGO_ABONO.map((metodo) => <option key={metodo} value={metodo}>{NOMBRE_METODO_PAGO[metodo]}</option>)}
                     </select>
                   </div>
+                  {abonoForm.metodoPago === 'TARJETA' && (
+                    <div className="flex items-end gap-2">
+                      <label className="flex items-center gap-2 pb-2 text-xs font-semibold text-slate-500">
+                        <input type="checkbox" checked={aplicarRecargo} onChange={(event) => { setAplicarRecargo(event.target.checked); setRecargoManual(null) }} />
+                        Recargo tarjeta {RECARGO_TARJETA_PORCENTAJE}%
+                      </label>
+                      {aplicarRecargo && (
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-500">Recargo (S/)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={recargoManual ?? recargoCalculado.toFixed(2)}
+                            onChange={(event) => setRecargoManual(event.target.value)}
+                            className="mt-1 w-24 rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <button type="button" disabled={enviando} onClick={() => void handleRegistrarAbono(paqueteAbierto.id)} className="btn-primary disabled:opacity-50">
-                    {enviando ? 'Registrando...' : 'Confirmar abono'}
+                    {enviando ? 'Registrando...' : recargoAbono > 0 ? `Confirmar abono (S/ ${(Number(abonoForm.monto || 0) + recargoAbono).toFixed(2)})` : 'Confirmar abono'}
                   </button>
                 </div>
               )}
