@@ -56,7 +56,7 @@ export function resolverMetodoPagoConsolidado(abonos: { metodoPago: string }[]):
   return (metodos.size === 1 ? [...metodos][0] : 'MIXTO') as MetodoPago
 }
 
-export async function registrarAbono(params: { paqueteId: string; monto: number; metodoPago: MetodoPago; usuarioId: string; recargo?: number }) {
+export async function registrarAbono(params: { paqueteId: string; monto: number; metodoPago: MetodoPago; usuarioId: string; recargo?: number; permitirExceso?: boolean }) {
   const { paqueteId, metodoPago, usuarioId } = params
   const monto = round2(Number(params.monto))
   if (!(monto > 0)) {
@@ -77,7 +77,8 @@ export async function registrarAbono(params: { paqueteId: string; monto: number;
   if (paquete.estado !== 'ABIERTO') throw new PaqueteError('El paquete ya está cerrado')
 
   const { saldo } = calcularSaldo(paquete.precioTotal, paquete.facturas)
-  if (monto > saldo + 0.01) {
+  // Cobrar de más es posible, pero solo si quien llama lo pide explícitamente (la UI lo advierte antes).
+  if (monto > saldo + 0.01 && !params.permitirExceso) {
     throw new PaqueteError(`El monto excede el saldo pendiente (S/ ${saldo.toFixed(2)})`)
   }
 
@@ -153,7 +154,8 @@ export async function emitirComprobanteFinal(params: {
   // El saldo se evalúa sobre TODOS los abonos activos, no solo los seleccionados: deseleccionar
   // una nota para excluirla del comprobante final no reabre el paquete, solo decide qué se consolida.
   const { saldo } = calcularSaldo(paquete.precioTotal, paquete.facturas)
-  if (Math.abs(saldo) > 0.01) {
+  // saldo negativo = se cobró de más (abono con exceso autorizado): también se puede emitir.
+  if (saldo > 0.01) {
     throw new PaqueteError('El paquete aún tiene saldo pendiente; debe estar pagado al 100% para emitir el comprobante final')
   }
 

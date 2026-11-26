@@ -36,6 +36,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       paqueteId: params.id,
       monto,
       recargo,
+      permitirExceso: body.permitirExceso === true,
       metodoPago: metodoPago as MetodoPago,
       usuarioId: session.user.id,
     })
