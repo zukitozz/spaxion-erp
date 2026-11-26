@@ -3,6 +3,7 @@ import { obtenerCorrelativo, resolverPrefijo } from '@/lib/correlativos'
 import { numeroALetras } from '@/lib/numeroALetras'
 import { CODIGO_SUNAT_TIPO_COMPROBANTE, TIPO_DOCUMENTO_CORRELATIVO } from '@/lib/comprobantes'
 import { enviarFacturaASunat } from '@/lib/enviarFactura'
+import { resolverPagosFactura } from '@/lib/pagos'
 import type { MetodoPago } from '@prisma/client'
 
 const IGV_PORCENTAJE = Number(process.env.IGV_PORCENTAJE || '18')
@@ -92,6 +93,9 @@ export async function registrarAbono(params: { paqueteId: string; monto: number;
   const gravadas = round2(totalCobrado / (1 + IGV_PORCENTAJE / 100))
   const igv = round2(totalCobrado - gravadas)
 
+  const columnasPago = resolverPagosFactura(totalCobrado, metodoPago, undefined)
+  if ('error' in columnasPago) throw new PaqueteError(columnasPago.error)
+
   return prisma.$transaction(async (tx) => {
     const prefijo = resolverPrefijo(tipoDocumento)
     const numeracionComprobante = await obtenerCorrelativo(tx, {
@@ -114,6 +118,12 @@ export async function registrarAbono(params: { paqueteId: string; monto: number;
         total: totalCobrado,
         recargo,
         metodoPago,
+        // El cierre de turno reparte el monto por método leyendo estas columnas pago*.
+        pagoEfectivo: columnasPago.pagoEfectivo,
+        pagoTarjeta: columnasPago.pagoTarjeta,
+        pagoYape: columnasPago.pagoYape,
+        pagoTransferencia: columnasPago.pagoTransferencia,
+        pagoDeposito: columnasPago.pagoDeposito,
         estado: 'PAGADO',
         items: { create: items },
         tipoComprobante: CODIGO_SUNAT_TIPO_COMPROBANTE.NOTA_VENTA,

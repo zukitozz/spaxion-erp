@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
-import { calcularTotales } from '@/lib/cierres'
+import { calcularTotales, criterioCuentaParaCierre } from '@/lib/cierres'
 
 type ClientLike = PrismaClient | Prisma.TransactionClient
 
@@ -8,7 +8,7 @@ type ClientLike = PrismaClient | Prisma.TransactionClient
 // dinero (ya se contabilizó al cobrar cada abono).
 export async function obtenerIngresosDelPeriodo(client: ClientLike, rango: { gte: Date; lte: Date }) {
   const facturas = await client.factura.findMany({
-    where: { activo: true, estado: 'PAGADO', cuentaParaCierre: true, fechaEmision: rango },
+    where: { estado: 'PAGADO', fechaEmision: rango, ...criterioCuentaParaCierre },
     select: {
       total: true,
       metodoPago: true,
